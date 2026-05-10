@@ -178,7 +178,7 @@ def separator(c, x, y, w):
 
 # ── Seitenkomponenten ────────────────────────────────────────────
 
-def draw_header(c, name, geschlecht, foto_pfad=None, logo_pfad=None):
+def draw_header(c, name, geschlecht, foto_pfad=None, logo_pfad=None, company_name=None):
     mx, my = 15*mm, 15*mm
     hw = W - 2*mx
     hh = 40*mm
@@ -241,8 +241,14 @@ def draw_header(c, name, geschlecht, foto_pfad=None, logo_pfad=None):
     # Name & Untertitel
     tx = cx_f + r + 10*mm
     c.setFillColor(colors.Color(1, 1, 1, 0.75))
-    c.setFont("Arial", 10)
-    c.drawString(tx, hy + hh - 13*mm, "Profil der Betreuungsperson")
+    c.setFont("Arial", 9.5)
+    if company_name:
+        c.drawString(tx, hy + hh - 11*mm, "Personalprofil exklusiv für Kunden von")
+        c.setFillColor(C_WEISS)
+        c.setFont("Arial-B", 10)
+        c.drawString(tx, hy + hh - 17*mm, company_name)
+    else:
+        c.drawString(tx, hy + hh - 13*mm, "Profil der Betreuungsperson")
     c.setFillColor(C_WEISS)
     c.setFont("Arial-B", 22)
     c.drawString(tx, hy + 10*mm, name)
@@ -362,7 +368,7 @@ def page1(c, d):
     c.rect(0, 0, W, H, fill=1, stroke=0)
 
     # Header
-    hy = draw_header(c, d["name"], d["geschlecht"], d.get("foto_pfad"), d.get("logo_pfad"))
+    hy = draw_header(c, d["name"], d["geschlecht"], d.get("foto_pfad"), d.get("logo_pfad"), d.get("company_name"))
     y  = hy - 8*mm
 
     # ── 1. Zusammenfassung (OBEN) ────────────────────────────────
@@ -433,7 +439,7 @@ def page2(c, d):
     c.setFillColor(C_ROSA_BG)
     c.rect(0, 0, W, H, fill=1, stroke=0)
 
-    hy = draw_header(c, d["name"], d["geschlecht"], d.get("foto_pfad"), d.get("logo_pfad"))
+    hy = draw_header(c, d["name"], d["geschlecht"], d.get("foto_pfad"), d.get("logo_pfad"), d.get("company_name"))
     y  = hy - 8*mm
 
     def val_ok(v):

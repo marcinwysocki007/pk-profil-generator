@@ -104,6 +104,7 @@ def build_daten(ext: dict, foto_path: str, company: dict) -> dict:
     return {
         "color_primary":         company.get("color_primary", "#9C2C8C"),
         "logo_pfad":             company.get("logo", ""),
+        "company_name":          company.get("name", ""),
         "name":                  ext.get("name", "Unbekannt"),
         "geschlecht":            ext.get("geschlecht", "Weiblich"),
         "foto_pfad":             foto_path,
