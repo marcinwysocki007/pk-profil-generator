@@ -202,7 +202,6 @@ def draw_header(c, name, geschlecht, foto_pfad=None, logo_pfad=None, company_nam
                     preserveAspectRatio=True, anchor="c")
         c.restoreState()
     else:
-        # Platzhalter-Kreis (etwas heller als Header)
         c.setFillColor(colors.Color(1, 1, 1, 0.22))
         c.circle(cx_f, cy_f, r, fill=1, stroke=0)
         c.setFillColor(C_WEISS)
@@ -222,38 +221,50 @@ def draw_header(c, name, geschlecht, foto_pfad=None, logo_pfad=None, company_nam
     c.setFillColor(C_WEISS)
     c.circle(bx, by, 3.5*mm, fill=1, stroke=0)
     c.setFillColor(C_LILA)
-    sym = "♀" if geschlecht == "Weiblich" else "♂"   # ♀ ♂
+    sym = "♀" if geschlecht == "Weiblich" else "♂"
     c.setFont("Arial", 8)
     c.drawCentredString(bx, by - 2.5, sym)
-
-    # Firmen-Logo oben rechts im Header
-    logo_w, logo_h = 28*mm, 12*mm
-    lx = mx + hw - logo_w - 4*mm
-    ly = hy + hh - logo_h - 5*mm
-    if logo_pfad and os.path.exists(logo_pfad):
-        c.drawImage(logo_pfad, lx, ly, logo_w, logo_h,
-                    preserveAspectRatio=True, anchor="c", mask="auto")
-    else:
-        # Platzhalter-Rechteck
-        c.setFillColor(colors.Color(1, 1, 1, 0.15))
-        c.roundRect(lx, ly, logo_w, logo_h, 2*mm, fill=1, stroke=0)
 
     # Name & Untertitel
     tx = cx_f + r + 10*mm
     c.setFillColor(colors.Color(1, 1, 1, 0.75))
-    c.setFont("Arial", 9.5)
-    if company_name:
-        c.drawString(tx, hy + hh - 11*mm, "Personalprofil exklusiv für Kunden von")
-        c.setFillColor(C_WEISS)
-        c.setFont("Arial-B", 10)
-        c.drawString(tx, hy + hh - 17*mm, company_name)
-    else:
-        c.drawString(tx, hy + hh - 13*mm, "Profil der Betreuungsperson")
+    c.setFont("Arial", 10)
+    c.drawString(tx, hy + hh - 13*mm, "Profil der Betreuungsperson")
     c.setFillColor(C_WEISS)
     c.setFont("Arial-B", 22)
     c.drawString(tx, hy + 10*mm, name)
 
     return hy   # untere Kante des Headers
+
+
+def draw_footer(c, company_name=None, logo_pfad=None):
+    """Footer mit Firmenlogo links und Claim rechts."""
+    if not company_name and not (logo_pfad and os.path.exists(logo_pfad)):
+        return
+    mx  = 15*mm
+    fw  = W - 2*mx
+    fy  = 9*mm   # Mittellinie Footer
+
+    # Trennlinie
+    c.setStrokeColor(C_TRENN)
+    c.setLineWidth(0.4)
+    c.line(mx, fy + 4*mm, mx + fw, fy + 4*mm)
+
+    # Logo links
+    logo_h = 7*mm
+    logo_w = 30*mm
+    if logo_pfad and os.path.exists(logo_pfad):
+        c.drawImage(logo_pfad, mx, fy - logo_h / 2, logo_w, logo_h,
+                    preserveAspectRatio=True, anchor="sw", mask="auto")
+
+    # Text rechts
+    if company_name:
+        c.setFillColor(C_GRAU)
+        c.setFont("Arial", 8)
+        c.drawRightString(mx + fw, fy - 2.5, f"Personalprofil exklusiv für Kunden von")
+        c.setFont("Arial-B", 8)
+        c.setFillColor(C_LILA)
+        c.drawRightString(mx + fw, fy - 2.5 - 3.5*mm, company_name)
 
 
 def draw_language_scale(c, x, y, w, level):
@@ -429,6 +440,8 @@ def page1(c, d):
                            row_h=row_h, lila_val=bool(vtype), sep=(i > 0))
         ry -= row_h
 
+    draw_footer(c, d.get("company_name"), d.get("logo_pfad"))
+
     y -= th
 
 
@@ -555,6 +568,8 @@ def page2(c, d):
                 c.drawString(val_x, vy, vl)
                 vy -= 4.5*mm
             ery -= row_h
+
+    draw_footer(c, d.get("company_name"), d.get("logo_pfad"))
 
 
 # ── Hauptprogramm ────────────────────────────────────────────────
