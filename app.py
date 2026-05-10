@@ -56,8 +56,9 @@ def extract_dominant_colors(img_bytes: bytes, n: int = 5) -> list:
     return result or ["#6B491A"]
 
 
-def show_color_swatches(colors: list, selected_key: str, button_key_prefix: str):
-    """Zeigt farbige Swatches; Klick setzt session_state[selected_key] und rerunnt."""
+def show_color_swatches(colors: list, selected_key: str, button_key_prefix: str,
+                        picker_key: str = None):
+    """Zeigt farbige Swatches; Klick setzt selected_key UND picker_key und rerunnt."""
     active = st.session_state.get(selected_key, colors[0] if colors else "#6B491A")
     cols = st.columns(len(colors))
     for i, (col, c) in enumerate(zip(cols, colors)):
@@ -70,6 +71,8 @@ def show_color_swatches(colors: list, selected_key: str, button_key_prefix: str)
             )
             if st.button(c, key=f"{button_key_prefix}_{i}", use_container_width=True):
                 st.session_state[selected_key] = c
+                if picker_key:
+                    st.session_state[picker_key] = c  # color_picker Widget-State direkt setzen
                 st.rerun()
 
 # ── Pfade ────────────────────────────────────────────────────────
@@ -261,7 +264,8 @@ with st.sidebar:
                 colors_list = st.session_state.get(f"_colors_{cid}", [])
                 if colors_list:
                     st.caption("Farben aus dem Logo – klicken zum Auswählen:")
-                    show_color_swatches(colors_list, f"_auto_{cid}", f"sw_{cid}")
+                    show_color_swatches(colors_list, f"_auto_{cid}", f"sw_{cid}",
+                                        picker_key=f"c_{cid}")
 
                 col_s, col_d = st.columns(2)
                 with col_s:
@@ -300,7 +304,8 @@ with st.sidebar:
     new_co_colors = st.session_state.get("_new_co_colors", [])
     if new_co_colors:
         st.caption("Farben aus dem Logo – klicken zum Auswählen:")
-        show_color_swatches(new_co_colors, "_new_co_auto_color", "sw_new")
+        show_color_swatches(new_co_colors, "_new_co_auto_color", "sw_new",
+                            picker_key="new_co_color")
 
     default_color = st.session_state.get("_new_co_auto_color", "#6B491A")
     new_co_color  = st.color_picker("Primärfarbe", default_color, key="new_co_color")
