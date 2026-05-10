@@ -1,0 +1,9 @@
+*.pdf
+*.jpg
+*.png
+!fonts/
+generated_profiles/
+__pycache__/
+.env
+.streamlit/secrets.toml
+profil_*.py

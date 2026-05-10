@@ -1,0 +1,240 @@
+import streamlit as st
+import anthropic
+import json
+import os
+import base64
+import tempfile
+from datetime import datetime
+from pathlib import Path
+
+from profil_generator import generate
+
+# ── Konfiguration ────────────────────────────────────────────────
+STORAGE_DIR = Path(os.path.dirname(os.path.abspath(__file__))) / "generated_profiles"
+STORAGE_DIR.mkdir(exist_ok=True)
+
+DEUTSCH_TEXTS = {
+    0: "Die Betreuungsperson spricht kein Deutsch.",
+    1: "Die Betreuungsperson hat Grundkenntnisse und versteht einfache Sätze.",
+    2: "Die Betreuungsperson spricht in einfachen Sätzen und kann sich im Alltag verständigen.",
+    3: "Die Betreuungsperson spricht fortgeschrittenes Deutsch und verständigt sich gut.",
+    4: "Die Betreuungsperson spricht sehr gut Deutsch und kommuniziert fließend.",
+}
+
+EXTRACTION_PROMPT = """\
+Du liest Pflegekraft-Profildaten aus mamamia-Portal-Screenshots aus und gibst ein JSON-Objekt zurück.
+
+Regeln:
+- verfuegbarkeit: Format "ab DD.MM.YY" (z.B. "ab 14.05.26")
+- alter: Format "XX (Jg. YYYY)" – oder "" wenn unbekannt
+- groesse_gewicht: Format "XXX–XXX cm, XX–XX kg"
+- deutsch_level: 0=Keine, 1=Grundkenntnisse, 2=Mittelstufe, 3=Fortgeschritten, 4=Gut
+- mobilitaet: z.B. "Vollständig mobil, Rollstuhlfähig, Bettlägerig"
+- Persönlichkeit + Hobbys: ins Deutsche übersetzen
+- beschreibung: 3–4 professionelle Sätze auf Deutsch über die Pflegekraft
+- besondere_merkmale: akzeptierte Erkrankungen oder besondere Fähigkeiten zusammenfassen
+- "" für unbekannte/leere Felder, niemals Gehalt oder Kontaktdaten übernehmen
+
+Antworte NUR mit dem JSON-Objekt:
+{
+  "name": "",
+  "geschlecht": "Weiblich",
+  "verfuegbarkeit": "",
+  "nationalitaet": "",
+  "alter": "",
+  "groesse_gewicht": "",
+  "fuehrerschein": "",
+  "raucher": "",
+  "pflegeberuf": "",
+  "erfahrung": "",
+  "deutsch_level": 2,
+  "patienten_anzahl": "",
+  "geschlecht_akzeptiert": "",
+  "mobilitaet": "",
+  "heben_lagern": "",
+  "demenz": "",
+  "nachteinsaetze": "",
+  "andere_haushalt": "",
+  "familie_naehe": "",
+  "tiere": "",
+  "urbanisierung": "",
+  "unterbringung": "",
+  "praeferierte_gegend": "",
+  "hobbys": "",
+  "persoenlichkeit": "",
+  "besondere_merkmale": "",
+  "andere_sprachen": "",
+  "beschreibung": ""
+}"""
+
+
+def get_client():
+    key = st.secrets.get("ANTHROPIC_API_KEY", "") or os.environ.get("ANTHROPIC_API_KEY", "")
+    if not key:
+        st.error("ANTHROPIC_API_KEY fehlt. Bitte in den App-Einstellungen hinterlegen.")
+        st.stop()
+    return anthropic.Anthropic(api_key=key)
+
+
+def extract_from_images(files, client) -> dict:
+    content = []
+    for f in files:
+        data = f.read()
+        mt = "image/jpeg" if f.name.lower().endswith((".jpg", ".jpeg")) else "image/png"
+        content.append({
+            "type": "image",
+            "source": {"type": "base64", "media_type": mt,
+                       "data": base64.b64encode(data).decode()}
+        })
+    content.append({"type": "text", "text": EXTRACTION_PROMPT})
+    resp = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=2000,
+        messages=[{"role": "user", "content": content}]
+    )
+    raw = resp.content[0].text
+    return json.loads(raw[raw.find("{"):raw.rfind("}") + 1])
+
+
+def build_daten(ext: dict, foto_path: str, brand: str) -> dict:
+    level = int(ext.get("deutsch_level", 2))
+    return {
+        "brand":                 brand,
+        "name":                  ext.get("name", "Unbekannt"),
+        "geschlecht":            ext.get("geschlecht", "Weiblich"),
+        "foto_pfad":             foto_path,
+        "deutsch_level":         level,
+        "deutsch_text":          DEUTSCH_TEXTS.get(level, DEUTSCH_TEXTS[2]),
+        "verfuegbarkeit":        ext.get("verfuegbarkeit", ""),
+        "nationalitaet":         ext.get("nationalitaet", ""),
+        "alter":                 ext.get("alter", ""),
+        "groesse_gewicht":       ext.get("groesse_gewicht", ""),
+        "fuehrerschein":         ext.get("fuehrerschein", ""),
+        "raucher":               ext.get("raucher", ""),
+        "pflegeberuf":           ext.get("pflegeberuf", ""),
+        "erfahrung":             ext.get("erfahrung", ""),
+        "beschreibung":          ext.get("beschreibung", ""),
+        "patienten_anzahl":      ext.get("patienten_anzahl", ""),
+        "geschlecht_akzeptiert": ext.get("geschlecht_akzeptiert", ""),
+        "mobilitaet":            ext.get("mobilitaet", ""),
+        "heben_lagern":          ext.get("heben_lagern", ""),
+        "demenz":                ext.get("demenz", ""),
+        "nachteinsaetze":        ext.get("nachteinsaetze", ""),
+        "andere_haushalt":       ext.get("andere_haushalt", ""),
+        "familie_naehe":         ext.get("familie_naehe", ""),
+        "tiere":                 ext.get("tiere", ""),
+        "urbanisierung":         ext.get("urbanisierung", ""),
+        "unterbringung":         ext.get("unterbringung", ""),
+        "praeferierte_gegend":   ext.get("praeferierte_gegend", ""),
+        "hobbys":                ext.get("hobbys", ""),
+        "persoenlichkeit":       ext.get("persoenlichkeit", ""),
+        "besondere_merkmale":    ext.get("besondere_merkmale", ""),
+        "andere_sprachen":       ext.get("andere_sprachen", ""),
+    }
+
+
+def make_pdf(daten: dict) -> tuple[str, bytes]:
+    name      = daten["name"].lower().replace(" ", "_")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename  = f"{name}_{timestamp}.pdf"
+    out_path  = STORAGE_DIR / filename
+    generate(daten, output_path=str(out_path))
+    with open(out_path, "rb") as f:
+        return filename, f.read()
+
+
+# ── UI ───────────────────────────────────────────────────────────
+
+st.set_page_config(page_title="Pflegeprofil Generator", page_icon="📋", layout="centered")
+
+st.markdown("""
+<style>
+    .stButton > button { border-radius: 10px; }
+    .block-container { max-width: 720px; }
+</style>
+""", unsafe_allow_html=True)
+
+st.title("Pflegeprofil Generator")
+st.caption("Foto + Portal-Screenshots hochladen → PDF wird automatisch erstellt")
+
+st.divider()
+
+col1, col2 = st.columns(2)
+with col1:
+    photo_file = st.file_uploader("Foto der Pflegekraft", type=["jpg", "jpeg", "png"],
+                                  help="Portrait-Foto der Betreuungsperson")
+with col2:
+    brand = st.selectbox("Brand", ["primundus", "mamamia"], index=0)
+
+screenshot_files = st.file_uploader(
+    "Portal-Screenshots (1–10 Bilder)",
+    type=["jpg", "jpeg", "png"],
+    accept_multiple_files=True,
+    help="Screenshots aus dem mamamia-Portal – alle relevanten Seiten hochladen"
+)
+
+st.divider()
+
+if st.button("Profil erstellen", type="primary", use_container_width=True, icon="🚀"):
+    if not photo_file:
+        st.error("Bitte ein Foto hochladen.")
+    elif not screenshot_files:
+        st.error("Bitte mindestens einen Portal-Screenshot hochladen.")
+    else:
+        client = get_client()
+
+        with st.status("Daten werden ausgelesen…", expanded=True) as status:
+            try:
+                st.write("Claude liest die Screenshots aus…")
+                extracted = extract_from_images(screenshot_files, client)
+                name = extracted.get("name", "Unbekannt")
+                st.write(f"Erkannt: **{name}**, Verfügbar: {extracted.get('verfuegbarkeit', '?')}")
+
+                # Foto temporär speichern
+                suffix = Path(photo_file.name).suffix
+                tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
+                tmp.write(photo_file.read())
+                tmp.close()
+
+                daten = build_daten(extracted, tmp.name, brand)
+
+                st.write("PDF wird generiert…")
+                filename, pdf_bytes = make_pdf(daten)
+                os.unlink(tmp.name)
+
+                status.update(label="Fertig!", state="complete")
+
+                st.success(f"Profil für **{name}** erstellt")
+                st.download_button(
+                    label="PDF herunterladen",
+                    data=pdf_bytes,
+                    file_name=filename,
+                    mime="application/pdf",
+                    use_container_width=True,
+                    icon="📥",
+                )
+
+            except json.JSONDecodeError:
+                status.update(state="error")
+                st.error("Daten konnten nicht ausgelesen werden. Bitte bessere Screenshots hochladen.")
+            except Exception as e:
+                status.update(state="error")
+                st.error(f"Fehler: {e}")
+
+# ── Gespeicherte Profile ─────────────────────────────────────────
+st.divider()
+st.subheader("Gespeicherte Profile")
+
+pdf_files = sorted(STORAGE_DIR.glob("*.pdf"), key=os.path.getmtime, reverse=True)
+if pdf_files:
+    for pdf_path in pdf_files[:30]:
+        mtime = datetime.fromtimestamp(os.path.getmtime(pdf_path))
+        col_a, col_b = st.columns([4, 1])
+        with col_a:
+            st.write(f"📄 {pdf_path.stem} — {mtime.strftime('%d.%m.%Y %H:%M')}")
+        with col_b:
+            with open(pdf_path, "rb") as f:
+                st.download_button("↓", data=f.read(), file_name=pdf_path.name,
+                                   mime="application/pdf", key=str(pdf_path))
+else:
+    st.info("Noch keine Profile erstellt.")
