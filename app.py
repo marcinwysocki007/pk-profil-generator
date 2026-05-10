@@ -2,6 +2,7 @@ import streamlit as st
 import anthropic
 import json
 import os
+import re
 import base64
 import tempfile
 from datetime import datetime
@@ -9,10 +10,29 @@ from pathlib import Path
 
 from profil_generator import generate
 
-# ── Konfiguration ────────────────────────────────────────────────
-STORAGE_DIR = Path(os.path.dirname(os.path.abspath(__file__))) / "generated_profiles"
+# ── Pfade ────────────────────────────────────────────────────────
+BASE_DIR      = Path(os.path.dirname(os.path.abspath(__file__)))
+STORAGE_DIR   = BASE_DIR / "generated_profiles"
+COMPANIES_DIR = BASE_DIR / "company_assets"
+COMPANIES_FILE = BASE_DIR / "companies.json"
 STORAGE_DIR.mkdir(exist_ok=True)
+COMPANIES_DIR.mkdir(exist_ok=True)
 
+# ── Unternehmen laden / speichern ────────────────────────────────
+def load_companies() -> dict:
+    if COMPANIES_FILE.exists():
+        with open(COMPANIES_FILE) as f:
+            return json.load(f)
+    return {}
+
+def save_companies(data: dict):
+    with open(COMPANIES_FILE, "w") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+def slug(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+
+# ── Sprachtext ───────────────────────────────────────────────────
 DEUTSCH_TEXTS = {
     0: "Die Betreuungsperson spricht kein Deutsch.",
     1: "Die Betreuungsperson hat Grundkenntnisse und versteht einfache Sätze.",
@@ -21,6 +41,7 @@ DEUTSCH_TEXTS = {
     4: "Die Betreuungsperson spricht sehr gut Deutsch und kommuniziert fließend.",
 }
 
+# ── Claude ───────────────────────────────────────────────────────
 EXTRACTION_PROMPT = """\
 Du liest Pflegekraft-Profildaten aus mamamia-Portal-Screenshots aus und gibst ein JSON-Objekt zurück.
 
@@ -31,40 +52,22 @@ Regeln:
 - deutsch_level: 0=Keine, 1=Grundkenntnisse, 2=Mittelstufe, 3=Fortgeschritten, 4=Gut
 - mobilitaet: z.B. "Vollständig mobil, Rollstuhlfähig, Bettlägerig"
 - Persönlichkeit + Hobbys: ins Deutsche übersetzen
-- beschreibung: 3–4 professionelle Sätze auf Deutsch über die Pflegekraft
-- besondere_merkmale: akzeptierte Erkrankungen oder besondere Fähigkeiten zusammenfassen
-- "" für unbekannte/leere Felder, niemals Gehalt oder Kontaktdaten übernehmen
+- beschreibung: 3–4 professionelle Sätze auf Deutsch
+- besondere_merkmale: akzeptierte Erkrankungen / besondere Fähigkeiten zusammenfassen
+- "" für unbekannte Felder, niemals Gehalt oder Kontaktdaten
 
 Antworte NUR mit dem JSON-Objekt:
 {
-  "name": "",
-  "geschlecht": "Weiblich",
-  "verfuegbarkeit": "",
-  "nationalitaet": "",
-  "alter": "",
-  "groesse_gewicht": "",
-  "fuehrerschein": "",
-  "raucher": "",
-  "pflegeberuf": "",
-  "erfahrung": "",
+  "name": "", "geschlecht": "Weiblich", "verfuegbarkeit": "",
+  "nationalitaet": "", "alter": "", "groesse_gewicht": "",
+  "fuehrerschein": "", "raucher": "", "pflegeberuf": "", "erfahrung": "",
   "deutsch_level": 2,
-  "patienten_anzahl": "",
-  "geschlecht_akzeptiert": "",
-  "mobilitaet": "",
-  "heben_lagern": "",
-  "demenz": "",
-  "nachteinsaetze": "",
-  "andere_haushalt": "",
-  "familie_naehe": "",
-  "tiere": "",
-  "urbanisierung": "",
-  "unterbringung": "",
-  "praeferierte_gegend": "",
-  "hobbys": "",
-  "persoenlichkeit": "",
-  "besondere_merkmale": "",
-  "andere_sprachen": "",
-  "beschreibung": ""
+  "patienten_anzahl": "", "geschlecht_akzeptiert": "", "mobilitaet": "",
+  "heben_lagern": "", "demenz": "", "nachteinsaetze": "",
+  "andere_haushalt": "", "familie_naehe": "", "tiere": "",
+  "urbanisierung": "", "unterbringung": "", "praeferierte_gegend": "",
+  "hobbys": "", "persoenlichkeit": "", "besondere_merkmale": "",
+  "andere_sprachen": "", "beschreibung": ""
 }"""
 
 
@@ -87,7 +90,7 @@ def extract_from_images(files, client) -> dict:
                        "data": base64.b64encode(data).decode()}
         })
     content.append({"type": "text", "text": EXTRACTION_PROMPT})
-    resp = client.messages.create(
+    resp = get_client().messages.create(
         model="claude-sonnet-4-6",
         max_tokens=2000,
         messages=[{"role": "user", "content": content}]
@@ -96,10 +99,11 @@ def extract_from_images(files, client) -> dict:
     return json.loads(raw[raw.find("{"):raw.rfind("}") + 1])
 
 
-def build_daten(ext: dict, foto_path: str, brand: str) -> dict:
+def build_daten(ext: dict, foto_path: str, company: dict) -> dict:
     level = int(ext.get("deutsch_level", 2))
     return {
-        "brand":                 brand,
+        "color_primary":         company.get("color_primary", "#9C2C8C"),
+        "logo_pfad":             company.get("logo", ""),
         "name":                  ext.get("name", "Unbekannt"),
         "geschlecht":            ext.get("geschlecht", "Weiblich"),
         "foto_pfad":             foto_path,
@@ -143,37 +147,113 @@ def make_pdf(daten: dict) -> tuple[str, bytes]:
         return filename, f.read()
 
 
-# ── UI ───────────────────────────────────────────────────────────
+# ── Streamlit Layout ─────────────────────────────────────────────
 
 st.set_page_config(page_title="Pflegeprofil Generator", page_icon="📋", layout="centered")
 
 st.markdown("""
 <style>
-    .stButton > button { border-radius: 10px; }
-    .block-container { max-width: 720px; }
+.block-container { max-width: 760px; }
+.stButton > button { border-radius: 8px; }
 </style>
 """, unsafe_allow_html=True)
 
+# ── Sidebar: Unternehmens-Verwaltung ─────────────────────────────
+with st.sidebar:
+    st.header("Unternehmen")
+
+    companies = load_companies()
+
+    if companies:
+        for cid, comp in list(companies.items()):
+            with st.expander(comp["name"]):
+                new_name  = st.text_input("Name", comp["name"], key=f"n_{cid}")
+                new_color = st.color_picker("Primärfarbe", comp.get("color_primary", "#6B491A"), key=f"c_{cid}")
+
+                logo_upload = st.file_uploader("Logo (PNG/JPG)", type=["png","jpg","jpeg"],
+                                               key=f"l_{cid}")
+                if logo_upload:
+                    logo_path = str(COMPANIES_DIR / f"{cid}_logo{Path(logo_upload.name).suffix}")
+                    with open(logo_path, "wb") as f:
+                        f.write(logo_upload.read())
+                    comp["logo"] = logo_path
+                    st.image(logo_path, width=120)
+                elif comp.get("logo") and os.path.exists(comp["logo"]):
+                    st.image(comp["logo"], width=120)
+
+                col_s, col_d = st.columns(2)
+                with col_s:
+                    if st.button("Speichern", key=f"s_{cid}"):
+                        new_id = slug(new_name)
+                        comp["name"]          = new_name
+                        comp["color_primary"] = new_color
+                        if new_id != cid:
+                            companies[new_id] = companies.pop(cid)
+                        save_companies(companies)
+                        st.rerun()
+                with col_d:
+                    if st.button("Löschen", key=f"del_{cid}", type="secondary"):
+                        del companies[cid]
+                        save_companies(companies)
+                        st.rerun()
+
+    st.divider()
+    st.subheader("Neues Unternehmen")
+    new_co_name  = st.text_input("Name", key="new_co_name")
+    new_co_color = st.color_picker("Primärfarbe", "#6B491A", key="new_co_color")
+    new_co_logo  = st.file_uploader("Logo (optional)", type=["png","jpg","jpeg"], key="new_co_logo")
+
+    if st.button("Unternehmen anlegen", use_container_width=True):
+        if new_co_name.strip():
+            cid = slug(new_co_name)
+            logo_path = ""
+            if new_co_logo:
+                logo_path = str(COMPANIES_DIR / f"{cid}_logo{Path(new_co_logo.name).suffix}")
+                with open(logo_path, "wb") as f:
+                    f.write(new_co_logo.read())
+            companies[cid] = {
+                "name":          new_co_name.strip(),
+                "color_primary": new_co_color,
+                "logo":          logo_path,
+            }
+            save_companies(companies)
+            st.rerun()
+        else:
+            st.warning("Bitte einen Namen eingeben.")
+
+# ── Hauptbereich: Profil erstellen ───────────────────────────────
 st.title("Pflegeprofil Generator")
-st.caption("Foto + Portal-Screenshots hochladen → PDF wird automatisch erstellt")
+st.caption("Foto + Portal-Screenshots hochladen — PDF wird automatisch erstellt")
+
+companies = load_companies()
+if not companies:
+    st.warning("Bitte zuerst ein Unternehmen in der Seitenleiste anlegen.")
+    st.stop()
+
+company_options = {v["name"]: k for k, v in companies.items()}
+selected_name   = st.selectbox("Unternehmen", list(company_options.keys()))
+selected_id     = company_options[selected_name]
+selected_co     = companies[selected_id]
+
+# Farbvorschau
+st.markdown(
+    f'<div style="display:inline-block;width:18px;height:18px;border-radius:4px;'
+    f'background:{selected_co.get("color_primary","#000")};vertical-align:middle;'
+    f'margin-right:8px"></div>'
+    f'<span style="color:gray;font-size:0.85em">{selected_co.get("color_primary","")}</span>',
+    unsafe_allow_html=True
+)
 
 st.divider()
 
 col1, col2 = st.columns(2)
 with col1:
-    photo_file = st.file_uploader("Foto der Pflegekraft", type=["jpg", "jpeg", "png"],
-                                  help="Portrait-Foto der Betreuungsperson")
+    photo_file = st.file_uploader("Foto der Pflegekraft",
+                                  type=["jpg","jpeg","png"])
 with col2:
-    brand = st.selectbox("Brand", ["primundus", "mamamia"], index=0)
-
-screenshot_files = st.file_uploader(
-    "Portal-Screenshots (1–10 Bilder)",
-    type=["jpg", "jpeg", "png"],
-    accept_multiple_files=True,
-    help="Screenshots aus dem mamamia-Portal – alle relevanten Seiten hochladen"
-)
-
-st.divider()
+    screenshot_files = st.file_uploader("Portal-Screenshots (1–10)",
+                                        type=["jpg","jpeg","png"],
+                                        accept_multiple_files=True)
 
 if st.button("Profil erstellen", type="primary", use_container_width=True, icon="🚀"):
     if not photo_file:
@@ -181,42 +261,33 @@ if st.button("Profil erstellen", type="primary", use_container_width=True, icon=
     elif not screenshot_files:
         st.error("Bitte mindestens einen Portal-Screenshot hochladen.")
     else:
-        client = get_client()
-
         with st.status("Daten werden ausgelesen…", expanded=True) as status:
             try:
                 st.write("Claude liest die Screenshots aus…")
-                extracted = extract_from_images(screenshot_files, client)
+                extracted = extract_from_images(screenshot_files, get_client())
                 name = extracted.get("name", "Unbekannt")
-                st.write(f"Erkannt: **{name}**, Verfügbar: {extracted.get('verfuegbarkeit', '?')}")
+                st.write(f"Erkannt: **{name}** · {extracted.get('verfuegbarkeit','?')}")
 
-                # Foto temporär speichern
                 suffix = Path(photo_file.name).suffix
                 tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
                 tmp.write(photo_file.read())
                 tmp.close()
 
-                daten = build_daten(extracted, tmp.name, brand)
+                daten = build_daten(extracted, tmp.name, selected_co)
 
                 st.write("PDF wird generiert…")
                 filename, pdf_bytes = make_pdf(daten)
                 os.unlink(tmp.name)
 
                 status.update(label="Fertig!", state="complete")
-
-                st.success(f"Profil für **{name}** erstellt")
-                st.download_button(
-                    label="PDF herunterladen",
-                    data=pdf_bytes,
-                    file_name=filename,
-                    mime="application/pdf",
-                    use_container_width=True,
-                    icon="📥",
-                )
+                st.success(f"Profil für **{name}** ({selected_name}) erstellt")
+                st.download_button("PDF herunterladen", data=pdf_bytes,
+                                   file_name=filename, mime="application/pdf",
+                                   use_container_width=True, icon="📥")
 
             except json.JSONDecodeError:
                 status.update(state="error")
-                st.error("Daten konnten nicht ausgelesen werden. Bitte bessere Screenshots hochladen.")
+                st.error("Daten konnten nicht ausgelesen werden.")
             except Exception as e:
                 status.update(state="error")
                 st.error(f"Fehler: {e}")

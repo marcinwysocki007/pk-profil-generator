@@ -85,30 +85,34 @@ pdfmetrics.registerFont(TTFont("Arial-B",  os.path.join(FONT_DIR, "Arial Bold.tt
 pdfmetrics.registerFont(TTFont("Arial-I",  os.path.join(FONT_DIR, "Arial Italic.ttf")))
 pdfmetrics.registerFont(TTFont("Arial-BI", os.path.join(FONT_DIR, "Arial Bold Italic.ttf")))
 
-# ── Brand-Farbpaletten ───────────────────────────────────────────
-BRAND_COLORS = {
-    "mamamia": {
-        "C_LILA":      colors.Color(156/255,  44/255, 140/255),  # #9C2C8C
-        "C_LILA_HELL": colors.Color(200/255, 130/255, 195/255),
-        "C_ROSA_BG":   colors.Color(251/255, 243/255, 250/255),
-        "C_EMPF":      colors.Color(246/255, 232/255, 244/255),
-        "C_TRENN":     colors.Color(225/255, 210/255, 228/255),
-    },
-    "primundus": {
-        "C_LILA":      colors.Color(107/255,  73/255,  42/255),  # #6B491A Braun
-        "C_LILA_HELL": colors.Color(180/255, 145/255, 108/255),  # helles Braun
-        "C_ROSA_BG":   colors.Color(250/255, 246/255, 242/255),  # warmes Creme
-        "C_EMPF":      colors.Color(245/255, 237/255, 228/255),  # helles Warm
-        "C_TRENN":     colors.Color(218/255, 200/255, 180/255),  # warme Linie
-    },
-}
+# ── Farben aus Hex-String ────────────────────────────────────────
+def _hex(h):
+    h = h.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return colors.Color(r/255, g/255, b/255)
+
+def _tint(h, t):
+    """Mische Primärfarbe mit Weiß: t=0.0 → reine Farbe, t=1.0 → Weiß."""
+    h = h.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return colors.Color((r + (255-r)*t)/255, (g + (255-g)*t)/255, (b + (255-b)*t)/255)
+
+def palette_from_hex(primary_hex: str) -> dict:
+    """Leitet aus einer Primärfarbe die vollständige Palette ab."""
+    return {
+        "C_LILA":      _hex(primary_hex),
+        "C_LILA_HELL": _tint(primary_hex, 0.45),
+        "C_ROSA_BG":   _tint(primary_hex, 0.93),
+        "C_EMPF":      _tint(primary_hex, 0.87),
+        "C_TRENN":     _tint(primary_hex, 0.72),
+    }
 
 # Aktive Farben (werden in generate() gesetzt)
-C_LILA      = BRAND_COLORS["mamamia"]["C_LILA"]
-C_LILA_HELL = BRAND_COLORS["mamamia"]["C_LILA_HELL"]
-C_ROSA_BG   = BRAND_COLORS["mamamia"]["C_ROSA_BG"]
-C_EMPF      = BRAND_COLORS["mamamia"]["C_EMPF"]
-C_TRENN     = BRAND_COLORS["mamamia"]["C_TRENN"]
+C_LILA      = _hex("#9C2C8C")
+C_LILA_HELL = _tint("#9C2C8C", 0.45)
+C_ROSA_BG   = _tint("#9C2C8C", 0.93)
+C_EMPF      = _tint("#9C2C8C", 0.87)
+C_TRENN     = _tint("#9C2C8C", 0.72)
 C_KARTE     = colors.white
 C_DUNKEL    = colors.Color(30/255,  30/255,  30/255)
 C_GRAU      = colors.Color(115/255, 115/255, 115/255)
@@ -174,7 +178,7 @@ def separator(c, x, y, w):
 
 # ── Seitenkomponenten ────────────────────────────────────────────
 
-def draw_header(c, name, geschlecht, foto_pfad=None):
+def draw_header(c, name, geschlecht, foto_pfad=None, logo_pfad=None):
     mx, my = 15*mm, 15*mm
     hw = W - 2*mx
     hh = 40*mm
@@ -221,6 +225,18 @@ def draw_header(c, name, geschlecht, foto_pfad=None):
     sym = "♀" if geschlecht == "Weiblich" else "♂"   # ♀ ♂
     c.setFont("Arial", 8)
     c.drawCentredString(bx, by - 2.5, sym)
+
+    # Firmen-Logo oben rechts im Header
+    logo_w, logo_h = 28*mm, 12*mm
+    lx = mx + hw - logo_w - 4*mm
+    ly = hy + hh - logo_h - 5*mm
+    if logo_pfad and os.path.exists(logo_pfad):
+        c.drawImage(logo_pfad, lx, ly, logo_w, logo_h,
+                    preserveAspectRatio=True, anchor="c", mask="auto")
+    else:
+        # Platzhalter-Rechteck
+        c.setFillColor(colors.Color(1, 1, 1, 0.15))
+        c.roundRect(lx, ly, logo_w, logo_h, 2*mm, fill=1, stroke=0)
 
     # Name & Untertitel
     tx = cx_f + r + 10*mm
@@ -346,7 +362,7 @@ def page1(c, d):
     c.rect(0, 0, W, H, fill=1, stroke=0)
 
     # Header
-    hy = draw_header(c, d["name"], d["geschlecht"], d.get("foto_pfad"))
+    hy = draw_header(c, d["name"], d["geschlecht"], d.get("foto_pfad"), d.get("logo_pfad"))
     y  = hy - 8*mm
 
     # ── 1. Zusammenfassung (OBEN) ────────────────────────────────
@@ -417,7 +433,7 @@ def page2(c, d):
     c.setFillColor(C_ROSA_BG)
     c.rect(0, 0, W, H, fill=1, stroke=0)
 
-    hy = draw_header(c, d["name"], d["geschlecht"], d.get("foto_pfad"))
+    hy = draw_header(c, d["name"], d["geschlecht"], d.get("foto_pfad"), d.get("logo_pfad"))
     y  = hy - 8*mm
 
     def val_ok(v):
@@ -542,9 +558,9 @@ def generate(daten=None, output_path=None):
     if daten is None:
         daten = DATEN
 
-    # Brand-Farben aktivieren
-    brand = daten.get("brand", "mamamia")
-    bc = BRAND_COLORS.get(brand, BRAND_COLORS["mamamia"])
+    # Farben aktivieren – entweder custom hex oder Fallback
+    primary = daten.get("color_primary", "#9C2C8C")
+    bc = palette_from_hex(primary)
     C_LILA      = bc["C_LILA"]
     C_LILA_HELL = bc["C_LILA_HELL"]
     C_ROSA_BG   = bc["C_ROSA_BG"]
