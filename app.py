@@ -3,12 +3,39 @@ import anthropic
 import json
 import os
 import re
+import io
 import base64
 import tempfile
 from datetime import datetime
 from pathlib import Path
+from PIL import Image
 
 from profil_generator import generate
+
+
+def extract_dominant_color(img_bytes: bytes) -> str:
+    """Extrahiert die dominante Markenfarbe aus einem Logo."""
+    img = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
+    # Transparente Pixel entfernen
+    bg = Image.new("RGB", img.size, (255, 255, 255))
+    bg.paste(img, mask=img.split()[3])
+    img = bg.resize((80, 80))
+    # Auf 8 Farben quantisieren
+    img_q = img.quantize(colors=8, method=Image.Quantize.FASTOCTREE)
+    palette = img_q.getpalette()[:24]
+    color_counts = {}
+    for px in img_q.getdata():
+        color_counts[px] = color_counts.get(px, 0) + 1
+    # Sortiert nach Häufigkeit, nicht-weiß/schwarz/grau bevorzugen
+    def score(idx):
+        r, g, b = palette[idx*3], palette[idx*3+1], palette[idx*3+2]
+        if max(r,g,b) > 230 or max(r,g,b) < 25:
+            return 0
+        saturation = max(r,g,b) - min(r,g,b)
+        return color_counts.get(idx, 0) * (1 + saturation / 128)
+    best = max(range(8), key=score)
+    r, g, b = palette[best*3], palette[best*3+1], palette[best*3+2]
+    return "#{:02x}{:02x}{:02x}".format(r, g, b)
 
 # ── Pfade ────────────────────────────────────────────────────────
 BASE_DIR      = Path(os.path.dirname(os.path.abspath(__file__)))
@@ -169,16 +196,22 @@ with st.sidebar:
         for cid, comp in list(companies.items()):
             with st.expander(comp["name"]):
                 new_name  = st.text_input("Name", comp["name"], key=f"n_{cid}")
-                new_color = st.color_picker("Primärfarbe", comp.get("color_primary", "#6B491A"), key=f"c_{cid}")
+                default_c = st.session_state.get(f"_auto_{cid}", comp.get("color_primary", "#6B491A"))
+                new_color = st.color_picker("Primärfarbe", default_c, key=f"c_{cid}")
 
                 logo_upload = st.file_uploader("Logo (PNG/JPG)", type=["png","jpg","jpeg"],
                                                key=f"l_{cid}")
                 if logo_upload:
+                    logo_bytes = logo_upload.read()
+                    logo_upload.seek(0)
                     logo_path = str(COMPANIES_DIR / f"{cid}_logo{Path(logo_upload.name).suffix}")
                     with open(logo_path, "wb") as f:
-                        f.write(logo_upload.read())
+                        f.write(logo_bytes)
                     comp["logo"] = logo_path
+                    auto = extract_dominant_color(logo_bytes)
+                    st.session_state[f"_auto_{cid}"] = auto
                     st.image(logo_path, width=120)
+                    st.caption(f"Erkannte Farbe: {auto}")
                 elif comp.get("logo") and os.path.exists(comp["logo"]):
                     st.image(comp["logo"], width=120)
 
@@ -200,15 +233,28 @@ with st.sidebar:
 
     st.divider()
     st.subheader("Neues Unternehmen")
-    new_co_name  = st.text_input("Name", key="new_co_name")
-    new_co_color = st.color_picker("Primärfarbe", "#6B491A", key="new_co_color")
-    new_co_logo  = st.file_uploader("Logo (optional)", type=["png","jpg","jpeg"], key="new_co_logo")
+    new_co_name = st.text_input("Name", key="new_co_name")
+    new_co_logo = st.file_uploader("Logo (optional)", type=["png","jpg","jpeg"],
+                                   key="new_co_logo")
+
+    # Farbe aus Logo extrahieren oder manuell wählen
+    if new_co_logo:
+        logo_bytes = new_co_logo.read()
+        new_co_logo.seek(0)
+        auto_color = extract_dominant_color(logo_bytes)
+        st.session_state["_new_co_auto_color"] = auto_color
+        st.image(logo_bytes, width=100)
+        st.caption(f"Erkannte Farbe: {auto_color}")
+
+    default_color = st.session_state.get("_new_co_auto_color", "#6B491A")
+    new_co_color  = st.color_picker("Primärfarbe", default_color, key="new_co_color")
 
     if st.button("Unternehmen anlegen", use_container_width=True):
         if new_co_name.strip():
             cid = slug(new_co_name)
             logo_path = ""
             if new_co_logo:
+                new_co_logo.seek(0)
                 logo_path = str(COMPANIES_DIR / f"{cid}_logo{Path(new_co_logo.name).suffix}")
                 with open(logo_path, "wb") as f:
                     f.write(new_co_logo.read())
@@ -218,6 +264,7 @@ with st.sidebar:
                 "logo":          logo_path,
             }
             save_companies(companies)
+            st.session_state.pop("_new_co_auto_color", None)
             st.rerun()
         else:
             st.warning("Bitte einen Namen eingeben.")
