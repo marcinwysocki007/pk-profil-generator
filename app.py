@@ -5,6 +5,7 @@ import os
 import re
 import io
 import base64
+import hashlib
 import tempfile
 from datetime import datetime
 from pathlib import Path
@@ -13,29 +14,63 @@ from PIL import Image
 from profil_generator import generate
 
 
-def extract_dominant_color(img_bytes: bytes) -> str:
-    """Extrahiert die dominante Markenfarbe aus einem Logo."""
+def _color_distance(h1: str, h2: str) -> float:
+    r1,g1,b1 = int(h1[1:3],16), int(h1[3:5],16), int(h1[5:7],16)
+    r2,g2,b2 = int(h2[1:3],16), int(h2[3:5],16), int(h2[5:7],16)
+    return ((r1-r2)**2 + (g1-g2)**2 + (b1-b2)**2) ** 0.5
+
+
+def extract_dominant_colors(img_bytes: bytes, n: int = 5) -> list:
+    """Gibt bis zu n distinkte Markenfarben aus einem Logo zurück."""
     img = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
-    # Transparente Pixel entfernen
     bg = Image.new("RGB", img.size, (255, 255, 255))
     bg.paste(img, mask=img.split()[3])
-    img = bg.resize((80, 80))
-    # Auf 8 Farben quantisieren
-    img_q = img.quantize(colors=8, method=Image.Quantize.FASTOCTREE)
-    palette = img_q.getpalette()[:24]
+    img = bg.resize((100, 100))
+    img_q = img.quantize(colors=16, method=Image.Quantize.FASTOCTREE)
+    palette = img_q.getpalette()[:48]  # 16 Farben × 3
     color_counts = {}
     for px in img_q.getdata():
         color_counts[px] = color_counts.get(px, 0) + 1
-    # Sortiert nach Häufigkeit, nicht-weiß/schwarz/grau bevorzugen
+
     def score(idx):
         r, g, b = palette[idx*3], palette[idx*3+1], palette[idx*3+2]
         if max(r,g,b) > 230 or max(r,g,b) < 25:
             return 0
         saturation = max(r,g,b) - min(r,g,b)
+        if saturation < 20:
+            return 0
         return color_counts.get(idx, 0) * (1 + saturation / 128)
-    best = max(range(8), key=score)
-    r, g, b = palette[best*3], palette[best*3+1], palette[best*3+2]
-    return "#{:02x}{:02x}{:02x}".format(r, g, b)
+
+    ranked = sorted(range(16), key=score, reverse=True)
+    result = []
+    for idx in ranked:
+        if len(result) >= n:
+            break
+        if score(idx) == 0:
+            break
+        r, g, b = palette[idx*3], palette[idx*3+1], palette[idx*3+2]
+        h = "#{:02x}{:02x}{:02x}".format(r, g, b)
+        if not any(_color_distance(h, prev) < 35 for prev in result):
+            result.append(h)
+
+    return result or ["#6B491A"]
+
+
+def show_color_swatches(colors: list, selected_key: str, button_key_prefix: str):
+    """Zeigt farbige Swatches; Klick setzt session_state[selected_key] und rerunnt."""
+    active = st.session_state.get(selected_key, colors[0] if colors else "#6B491A")
+    cols = st.columns(len(colors))
+    for i, (col, c) in enumerate(zip(cols, colors)):
+        with col:
+            border = "2px solid #333" if c == active else "1px solid #ddd"
+            st.markdown(
+                f'<div style="background:{c};height:28px;border-radius:4px;'
+                f'border:{border};margin-bottom:3px"></div>',
+                unsafe_allow_html=True,
+            )
+            if st.button(c, key=f"{button_key_prefix}_{i}", use_container_width=True):
+                st.session_state[selected_key] = c
+                st.rerun()
 
 # ── Pfade ────────────────────────────────────────────────────────
 BASE_DIR      = Path(os.path.dirname(os.path.abspath(__file__)))
@@ -73,19 +108,21 @@ EXTRACTION_PROMPT = """\
 Du liest Pflegekraft-Profildaten aus mamamia-Portal-Screenshots aus und gibst ein JSON-Objekt zurück.
 
 Regeln:
+- name: NUR Vorname – KEIN Nachname, niemals Familienname
+- nachname_initial: NUR der erste Buchstabe des Nachnamens (Großbuchstabe), z.B. "K"
 - verfuegbarkeit: Format "ab DD.MM.YY" (z.B. "ab 14.05.26")
 - alter: Format "XX (Jg. YYYY)" – oder "" wenn unbekannt
 - groesse_gewicht: Format "XXX–XXX cm, XX–XX kg"
 - deutsch_level: 0=Keine, 1=Grundkenntnisse, 2=Mittelstufe, 3=Fortgeschritten, 4=Gut
 - mobilitaet: z.B. "Vollständig mobil, Rollstuhlfähig, Bettlägerig"
 - Persönlichkeit + Hobbys: ins Deutsche übersetzen
-- beschreibung: 3–4 professionelle Sätze auf Deutsch
+- beschreibung: 3–4 professionelle Sätze auf Deutsch – nur Vorname verwenden
 - besondere_merkmale: akzeptierte Erkrankungen / besondere Fähigkeiten zusammenfassen
-- "" für unbekannte Felder, niemals Gehalt oder Kontaktdaten
+- NIEMALS aufnehmen: Nachname, Telefonnummer, E-Mail, Adresse, Gehalt, Kontonummer
 
 Antworte NUR mit dem JSON-Objekt:
 {
-  "name": "", "geschlecht": "Weiblich", "verfuegbarkeit": "",
+  "name": "", "nachname_initial": "", "geschlecht": "Weiblich", "verfuegbarkeit": "",
   "nationalitaet": "", "alter": "", "groesse_gewicht": "",
   "fuehrerschein": "", "raucher": "", "pflegeberuf": "", "erfahrung": "",
   "deutsch_level": 2,
@@ -133,6 +170,7 @@ def build_daten(ext: dict, foto_path: str, company: dict) -> dict:
         "logo_pfad":             company.get("logo", ""),
         "company_name":          company.get("name", ""),
         "name":                  ext.get("name", "Unbekannt"),
+        "nachname_initial":      ext.get("nachname_initial", "").upper()[:1],
         "geschlecht":            ext.get("geschlecht", "Weiblich"),
         "foto_pfad":             foto_path,
         "deutsch_level":         level,
@@ -166,9 +204,11 @@ def build_daten(ext: dict, foto_path: str, company: dict) -> dict:
 
 
 def make_pdf(daten: dict) -> tuple[str, bytes]:
-    name      = daten["name"].lower().replace(" ", "_")
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename  = f"{name}_{timestamp}.pdf"
+    vorname  = daten["name"].split()[0] if daten["name"].strip() else "Profil"
+    initial  = daten.get("nachname_initial", "").upper()[:1]
+    firma    = re.sub(r"[^a-zA-Z0-9äöüÄÖÜß]", "", daten.get("company_name", "Firma"))
+    name_part = f"{vorname}-{initial}" if initial else vorname
+    filename  = f"{name_part}_{firma}.pdf"
     out_path  = STORAGE_DIR / filename
     generate(daten, output_path=str(out_path))
     with open(out_path, "rb") as f:
@@ -208,12 +248,20 @@ with st.sidebar:
                     with open(logo_path, "wb") as f:
                         f.write(logo_bytes)
                     comp["logo"] = logo_path
-                    auto = extract_dominant_color(logo_bytes)
-                    st.session_state[f"_auto_{cid}"] = auto
+                    logo_hash = hashlib.md5(logo_bytes).hexdigest()
+                    if st.session_state.get(f"_logo_hash_{cid}") != logo_hash:
+                        colors_list = extract_dominant_colors(logo_bytes)
+                        st.session_state[f"_colors_{cid}"]   = colors_list
+                        st.session_state[f"_auto_{cid}"]     = colors_list[0]
+                        st.session_state[f"_logo_hash_{cid}"] = logo_hash
                     st.image(logo_path, width=120)
-                    st.caption(f"Erkannte Farbe: {auto}")
                 elif comp.get("logo") and os.path.exists(comp["logo"]):
                     st.image(comp["logo"], width=120)
+
+                colors_list = st.session_state.get(f"_colors_{cid}", [])
+                if colors_list:
+                    st.caption("Farben aus dem Logo – klicken zum Auswählen:")
+                    show_color_swatches(colors_list, f"_auto_{cid}", f"sw_{cid}")
 
                 col_s, col_d = st.columns(2)
                 with col_s:
@@ -241,10 +289,18 @@ with st.sidebar:
     if new_co_logo:
         logo_bytes = new_co_logo.read()
         new_co_logo.seek(0)
-        auto_color = extract_dominant_color(logo_bytes)
-        st.session_state["_new_co_auto_color"] = auto_color
+        logo_hash = hashlib.md5(logo_bytes).hexdigest()
+        if st.session_state.get("_new_co_logo_hash") != logo_hash:
+            colors_list = extract_dominant_colors(logo_bytes)
+            st.session_state["_new_co_colors"]    = colors_list
+            st.session_state["_new_co_auto_color"] = colors_list[0]
+            st.session_state["_new_co_logo_hash"]  = logo_hash
         st.image(logo_bytes, width=100)
-        st.caption(f"Erkannte Farbe: {auto_color}")
+
+    new_co_colors = st.session_state.get("_new_co_colors", [])
+    if new_co_colors:
+        st.caption("Farben aus dem Logo – klicken zum Auswählen:")
+        show_color_swatches(new_co_colors, "_new_co_auto_color", "sw_new")
 
     default_color = st.session_state.get("_new_co_auto_color", "#6B491A")
     new_co_color  = st.color_picker("Primärfarbe", default_color, key="new_co_color")

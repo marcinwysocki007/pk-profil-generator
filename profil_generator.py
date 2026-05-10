@@ -245,6 +245,10 @@ def draw_footer(c, company_name=None, logo_pfad=None):
     fw  = W - 2*mx
     fy  = 9*mm   # Mittellinie Footer
 
+    # Weißer Hintergrund für Footer
+    c.setFillColor(colors.white)
+    c.rect(0, 0, W, fy + 6*mm, fill=1, stroke=0)
+
     # Trennlinie
     c.setStrokeColor(C_TRENN)
     c.setLineWidth(0.4)
@@ -541,8 +545,18 @@ def page2(c, d):
         extra_rows.append(("Weitere Sprachen",     d["andere_sprachen"],    True))
 
     if extra_rows:
-        hdr3 = 24*mm
-        eh = hdr3 + len(extra_rows) * row_h
+        hdr3    = 24*mm
+        val_x   = mx + kw * 0.55
+        val_w   = kw * 0.45 - 5*mm
+
+        # Dynamische Zeilenhöhen – passt sich an langen Texten an
+        row_heights = []
+        for label, value, lila_v in extra_rows:
+            vlines = wrap(c, str(value), "Arial-B", 9.5, val_w)
+            rh = max(row_h, len(vlines) * 4.5*mm + 4*mm)
+            row_heights.append(rh)
+
+        eh = hdr3 + sum(row_heights)
         card(c, mx, y - eh, kw, eh)
 
         c.setFillColor(C_DUNKEL)
@@ -552,22 +566,21 @@ def page2(c, d):
 
         ery = y - hdr3
         for i, (label, value, lila_v) in enumerate(extra_rows):
+            rh_i = row_heights[i]
             if i > 0:
-                separator(c, mx, ery + row_h, kw)
+                separator(c, mx, ery + rh_i, kw)
             c.setFillColor(C_GRAU)
             c.setFont("Arial", 9.5)
-            c.drawString(mx + 8*mm, ery + row_h / 2 - 1.5*mm, label)
+            c.drawString(mx + 8*mm, ery + rh_i / 2 - 1.5*mm, label)
             c.setFillColor(C_LILA if lila_v else C_DUNKEL)
             c.setFont("Arial-B", 9.5)
-            val_x  = mx + kw * 0.55
-            val_w  = kw * 0.45 - 5*mm
             vlines = wrap(c, str(value), "Arial-B", 9.5, val_w)
             n_v    = len(vlines)
-            vy     = ery + row_h / 2 + (n_v - 1) * 2.25*mm - 1.5*mm
+            vy     = ery + rh_i / 2 + (n_v - 1) * 2.25*mm - 1.5*mm
             for vl in vlines:
                 c.drawString(val_x, vy, vl)
                 vy -= 4.5*mm
-            ery -= row_h
+            ery -= rh_i
 
     draw_footer(c, d.get("company_name"), d.get("logo_pfad"))
 
