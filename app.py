@@ -696,15 +696,15 @@ with tab2:
         response_prompt = f"""Analysiere die folgende Anfrage und erstelle zwei Dinge:
 
 1. Eine kompakte, persönliche Antwortnachricht auf Deutsch (ca. 6–8 Sätze).
-   Ton: warm, professionell, direkt – gut formulierte kurze E-Mail, kein Marketingsprech.
+   Ton: locker-professionell, direkt, menschlich – kein Marketingsprech, keine Floskeln wie
+   "sorgfältig geprüft", "kalkuliert", "entsprechend" oder "Vertrauen". Einfach natürlich reden.
    Aufbau:
    - Extrahiere den Namen des Absenders (wer schreibt die Anfrage) und begrüße ihn/sie direkt
-   - Nenne den Namen des Patienten/der Patienten und den Ort
-   - Gehe kurz auf die Pflegesituation ein (1–2 Sätze, nicht alles aufzählen)
-   - Wir haben entsprechend kalkuliert: {preis_info}, zzgl. Fahrtkosten 125 € pro Strecke
-   - 2 passende Personalvorschläge wurden beigefügt
-   - Bitte um kurze Rückmeldung, damit wir die Pflegekraft sichern können
-   - Schließe mit einem passenden Smiley ab (z.B. 😊)
+   - Nenne kurz die Situation (Patient, Ort) und 1–2 konkrete Anforderungen – sachlich, knapp
+   - Preis nennen: {preis_info}, zzgl. Fahrtkosten 125 € pro Strecke
+   - 2 passende Profile wurden beigefügt
+   - Kurze Bitte um Rückmeldung, damit wir die Pflegekraft sichern können
+   - Schließe mit einem Smiley ab (z.B. 😊)
 
 2. Eine kurze interne Bezeichnung für die Kalkulation (z.B. "Familie Müller – Berlin, PG3")
 
