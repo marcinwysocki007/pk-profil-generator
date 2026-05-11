@@ -683,7 +683,6 @@ with tab2:
 
     anfrage_text = st.session_state.get("calc_text", "").strip()
     monat_str    = fmt_eur(gesamt)
-    tag_str      = fmt_eur(gesamt / 30)
 
     if provision_input > 0:
         preis_info = (
@@ -693,49 +692,49 @@ with tab2:
     else:
         preis_info = f"unser Monatssatz: {monat_str}"
 
-    col_name, col_btn = st.columns([2, 1])
-    with col_name:
-        contact_name = st.text_input("Ansprechpartner", placeholder="z.B. Herr Müller",
-                                     key="calc_contact")
-    with col_btn:
-        st.write("")
-        st.write("")
-        gen_btn = st.button("✍️ Antwort generieren", key="gen_response", use_container_width=True)
+    if st.button("✍️ Antwort generieren", key="gen_response", use_container_width=True):
+        response_prompt = f"""Analysiere die folgende Anfrage und erstelle zwei Dinge:
 
-    if gen_btn:
-        anrede = contact_name.strip() if contact_name.strip() else "…"
-        response_prompt = f"""Schreibe eine kompakte, persönliche Antwortnachricht auf Deutsch (ca. 6–8 Sätze).
-Ton: warm, professionell, direkt – wie eine gut formulierte kurze E-Mail, kein Marketingsprech.
+1. Eine kompakte, persönliche Antwortnachricht auf Deutsch (ca. 6–8 Sätze).
+   Ton: warm, professionell, direkt – gut formulierte kurze E-Mail, kein Marketingsprech.
+   Aufbau:
+   - Extrahiere den Namen des Absenders (wer schreibt die Anfrage) und begrüße ihn/sie direkt
+   - Nenne den Namen des Patienten/der Patienten und den Ort
+   - Gehe kurz auf die Pflegesituation ein (1–2 Sätze, nicht alles aufzählen)
+   - Wir haben entsprechend kalkuliert: {preis_info}
+   - 2 passende Personalvorschläge wurden beigefügt
+   - Bitte um kurze Rückmeldung, damit wir die Pflegekraft sichern können
+   - Schließe mit einem passenden Smiley ab (z.B. 😊)
 
-Aufbau:
-1. Kurze Begrüßung mit "{anrede}"
-2. Nenne den Namen des zu betreuenden Kunden und den Ort/die Stadt – wenn aus der Anfrage erkennbar, sonst weglassen
-3. Gehe kurz und konkret auf die Pflegesituation ein (1–2 Sätze, nicht alles aufzählen)
-4. Wir haben entsprechend kalkuliert: {preis_info}
-5. 2 passende Personalvorschläge wurden beigefügt
-6. Freundliche aber klare Bitte um kurze Rückmeldung, damit wir die Pflegekraft sichern können
+2. Eine kurze interne Bezeichnung für die Kalkulation (z.B. "Familie Müller – Berlin, PG3")
 
 Anfrage:
-{anfrage_text if anfrage_text else "(keine Angabe – schreibe allgemein)"}
+{anfrage_text if anfrage_text else "(keine Anfrage – schreibe allgemein, ohne Namen)"}
 
-Schließe mit einem passenden Smiley ab (z.B. 😊) – professionell aber locker.
-Antworte NUR mit dem fertigen Text, keine Betreffzeile, keine Grußformel."""
+Antworte NUR mit diesem JSON, kein Markdown drumherum:
+{{
+  "antwort": "der fertige Antworttext",
+  "bezeichnung": "kurze interne Bezeichnung"
+}}"""
 
         with st.spinner("…"):
             try:
                 resp = get_client().messages.create(
                     model="claude-sonnet-4-6",
-                    max_tokens=300,
+                    max_tokens=800,
                     messages=[{"role": "user", "content": response_prompt}],
                 )
-                st.session_state["calc_response"] = resp.content[0].text
+                raw = resp.content[0].text
+                data = json.loads(raw[raw.find("{"):raw.rfind("}")+1])
+                st.session_state["calc_response"]   = data.get("antwort", raw)
+                st.session_state["calc_label"]       = data.get("bezeichnung", "")
             except Exception as e:
                 st.error(f"Fehler: {e}")
 
     if st.session_state.get("calc_response"):
         st.text_area("Antworttext (bearbeitbar)",
                      value=st.session_state["calc_response"],
-                     height=180, key="calc_response_area")
+                     height=220, key="calc_response_area")
 
     # ── Im Tool speichern ─────────────────────────────────────────
     st.divider()
