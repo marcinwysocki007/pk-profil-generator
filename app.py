@@ -81,6 +81,7 @@ BASE_DIR      = Path(os.path.dirname(os.path.abspath(__file__)))
 STORAGE_DIR   = BASE_DIR / "generated_profiles"
 COMPANIES_DIR = BASE_DIR / "company_assets"
 COMPANIES_FILE = BASE_DIR / "companies.json"
+CALC_FILE      = BASE_DIR / "calculations.json"
 STORAGE_DIR.mkdir(exist_ok=True)
 COMPANIES_DIR.mkdir(exist_ok=True)
 
@@ -162,6 +163,18 @@ def get_logo_path(comp: dict) -> str:
     except Exception:
         return ""
 
+
+def load_calculations() -> list:
+    if CALC_FILE.exists():
+        with open(CALC_FILE) as f:
+            return json.load(f)
+    return []
+
+def save_calculation_entry(entry: dict):
+    calcs = load_calculations()
+    calcs.insert(0, entry)
+    with open(CALC_FILE, "w") as f:
+        json.dump(calcs[:100], f, indent=2, ensure_ascii=False)
 
 def slug(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
@@ -665,84 +678,51 @@ with tab2:
     with col_t:
         st.metric("📅 Tagessatz", fmt_eur(gesamt / 30))
 
-    # ── Kalkulation speichern ─────────────────────────────────────
+    # ── Antwort + Speichern ───────────────────────────────────────
     st.divider()
-    summary_lines = [
-        f"Preiskalkulation – {datetime.now().strftime('%d.%m.%Y %H:%M')}",
-        "=" * 42,
-    ]
-    for cat in PRICE_CONFIG:
-        sel_val = st.session_state.get(f"calc_radio_{cat}", list(PRICE_CONFIG[cat].keys())[0])
-        surcharge = PRICE_CONFIG[cat][sel_val]
-        suffix = f"  (+{fmt_eur(surcharge)})" if surcharge > 0 else ""
-        summary_lines.append(f"{cat}: {sel_val}{suffix}")
-    summary_lines += ["=" * 42, f"Basispreis:  {fmt_eur(BASE_PRICE)}"]
-    for cat, sel, val in surcharges:
-        summary_lines.append(f"+ {cat} ({sel}): +{fmt_eur(val)}")
-    if provision_input > 0:
-        prov_label = f"{fmt_eur(provision_input)}/Tag × 30" if provision_unit == "Tag" else f"{fmt_eur(provision_input)}/Monat"
-        summary_lines.append(f"+ Partnerprovision ({prov_label}): +{fmt_eur(provision_eur)}")
-    summary_lines += ["=" * 42, f"Monatssatz:  {fmt_eur(gesamt)}", f"Tagessatz:   {fmt_eur(gesamt / 30)}"]
+
     anfrage_text = st.session_state.get("calc_text", "").strip()
-    if anfrage_text:
-        summary_lines += ["", "Anfrage:", anfrage_text]
-    summary_text = "\n".join(summary_lines)
+    monat_str    = fmt_eur(gesamt)
+    tag_str      = fmt_eur(gesamt / 30)
 
-    col_dl, col_gen = st.columns(2)
-    with col_dl:
-        st.download_button(
-            "💾 Kalkulation speichern",
-            data=summary_text.encode("utf-8"),
-            file_name=f"Kalkulation_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-            mime="text/plain",
-            use_container_width=True,
-        )
-
-    # ── Antworttext generieren ────────────────────────────────────
-    st.subheader("✉️ Antwort auf Anfrage")
-
-    # Preisinfo aufbauen
-    monat_str = fmt_eur(gesamt)
-    tag_str   = fmt_eur(gesamt / 30)
     if provision_input > 0:
         preis_info = (
-            f"Unser Preis beträgt {fmt_eur(total)} pro Monat zzgl. einer Partnerprovision "
-            f"von {fmt_eur(provision_eur)} – Gesamtmonatssatz {monat_str} (Tagessatz {tag_str})."
+            f"Monatssatz {fmt_eur(total)} zzgl. Partnerprovision {fmt_eur(provision_eur)} "
+            f"= Gesamt {monat_str} ({tag_str}/Tag)"
         )
     else:
-        preis_info = f"Unser Monatssatz beträgt {monat_str} (Tagessatz {tag_str})."
+        preis_info = f"Monatssatz {monat_str} ({tag_str}/Tag)"
 
-    # Gewählte Optionen als Kontext für Claude
-    optionen_text = "\n".join(
-        f"- {cat}: {st.session_state.get(f'calc_radio_{cat}', list(PRICE_CONFIG[cat].keys())[0])}"
-        for cat in PRICE_CONFIG
-    )
+    col_name, col_btn = st.columns([2, 1])
+    with col_name:
+        contact_name = st.text_input("Ansprechpartner", placeholder="z.B. Herr Müller",
+                                     key="calc_contact")
+    with col_btn:
+        st.write("")
+        st.write("")
+        gen_btn = st.button("✍️ Antwort generieren", key="gen_response", use_container_width=True)
 
-    if st.button("Antwort generieren", key="gen_response", use_container_width=True, icon="✍️"):
-        response_prompt = f"""Du bist ein professioneller Kundenbetreuer bei einem 24h-Pflegevermittlungs-Unternehmen.
-Schreibe eine kurze, professionelle Antwort auf eine Anfrage auf Deutsch.
+    if gen_btn:
+        anrede = contact_name.strip() if contact_name.strip() else "…"
+        response_prompt = f"""Schreibe eine sehr kurze, direkte Antwortnachricht (3–4 Sätze, kein Blabla) auf Deutsch.
+Ton: professionell aber persönlich, wie eine WhatsApp/kurze E-Mail.
 
-Die Antwort soll:
-- Warmherzig auf die konkreten Wünsche und Bedürfnisse aus der Anfrage eingehen
-- Den Preis klar nennen: {preis_info}
-- Erwähnen, dass wir passende Profile bereits übermitteln werden
-- Freundlich aber klar darauf hinweisen, dass bei Interesse eine schnelle Rückmeldung nötig ist, um die Pflegekraft zu sichern
-- Professionell und persönlich klingen, ca. 150–200 Wörter
-- Ohne Betreffzeile, direkt als Fließtext beginnen
+Struktur:
+1. Kurze Begrüßung mit "{anrede}"
+2. Wir haben entsprechend kalkuliert: {preis_info}
+3. 2 Personalvorschläge wurden beigefügt
+4. Bitte kurz melden, damit wir die Pflegekraft sichern können
 
-Anfragedaten (aus Kalkulator):
-{optionen_text}
+Anfrage-Kontext (nur zur Orientierung, NICHT ausführlich wiederholen):
+{anfrage_text if anfrage_text else "(keine Angabe)"}
 
-Anfrage-Originaltext:
-{anfrage_text if anfrage_text else "(kein Freitext – beziehe dich auf die Kalkulatordaten)"}
+Antworte NUR mit dem fertigen Text, keine Betreffzeile."""
 
-Antworte NUR mit dem fertigen Antworttext."""
-
-        with st.spinner("Antwort wird generiert…"):
+        with st.spinner("…"):
             try:
                 resp = get_client().messages.create(
                     model="claude-sonnet-4-6",
-                    max_tokens=600,
+                    max_tokens=300,
                     messages=[{"role": "user", "content": response_prompt}],
                 )
                 st.session_state["calc_response"] = resp.content[0].text
@@ -750,10 +730,54 @@ Antworte NUR mit dem fertigen Antworttext."""
                 st.error(f"Fehler: {e}")
 
     if st.session_state.get("calc_response"):
-        st.text_area(
-            "Generierter Antworttext (bearbeitbar & kopierbar)",
-            value=st.session_state["calc_response"],
-            height=280,
-            key="calc_response_area",
-        )
-        st.caption("↑ Text anklicken → Strg+A / ⌘A → Strg+C / ⌘C zum Kopieren")
+        st.text_area("Antworttext (bearbeitbar)",
+                     value=st.session_state["calc_response"],
+                     height=180, key="calc_response_area")
+
+    # ── Im Tool speichern ─────────────────────────────────────────
+    st.divider()
+    label_input = st.text_input("Bezeichnung für diese Kalkulation",
+                                placeholder="z.B. Familie Müller – PG3 Ehepaar",
+                                key="calc_label")
+    if st.button("💾 Kalkulation speichern", use_container_width=True):
+        selections = {
+            cat: st.session_state.get(f"calc_radio_{cat}", list(PRICE_CONFIG[cat].keys())[0])
+            for cat in PRICE_CONFIG
+        }
+        entry = {
+            "datum":       datetime.now().strftime("%d.%m.%Y %H:%M"),
+            "label":       label_input.strip() or contact_name.strip() or "Ohne Bezeichnung",
+            "kontakt":     contact_name.strip(),
+            "anfrage":     anfrage_text,
+            "selections":  selections,
+            "provision":   provision_input,
+            "provision_unit": provision_unit,
+            "monatssatz":  round(gesamt, 2),
+            "tagessatz":   round(gesamt / 30, 2),
+        }
+        save_calculation_entry(entry)
+        st.success("Gespeichert!")
+
+    # ── Gespeicherte Kalkulationen ────────────────────────────────
+    st.subheader("📂 Gespeicherte Kalkulationen")
+    calcs = load_calculations()
+    if calcs:
+        for i, c in enumerate(calcs):
+            label = c.get("label") or c.get("kontakt") or "Kalkulation"
+            with st.expander(f"{c['datum']}  –  {label}  |  {fmt_eur(c['monatssatz'])}/Monat"):
+                for cat, sel in c.get("selections", {}).items():
+                    surcharge = PRICE_CONFIG.get(cat, {}).get(sel, 0)
+                    suffix = f" (+{fmt_eur(surcharge)})" if surcharge > 0 else ""
+                    st.write(f"**{cat}:** {sel}{suffix}")
+                if c.get("provision", 0) > 0:
+                    st.write(f"**Provision:** {fmt_eur(c['provision'])} / {c.get('provision_unit','Monat')}")
+                st.write(f"**Monatssatz:** {fmt_eur(c['monatssatz'])}  |  **Tagessatz:** {fmt_eur(c['tagessatz'])}")
+                if c.get("anfrage"):
+                    st.caption(f"Anfrage: {c['anfrage'][:200]}…" if len(c['anfrage']) > 200 else f"Anfrage: {c['anfrage']}")
+                if st.button("🗑 Löschen", key=f"del_calc_{i}"):
+                    calcs.pop(i)
+                    with open(CALC_FILE, "w") as f:
+                        json.dump(calcs, f, indent=2, ensure_ascii=False)
+                    st.rerun()
+    else:
+        st.info("Noch keine Kalkulationen gespeichert.")
