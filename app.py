@@ -704,19 +704,20 @@ with tab2:
 
     if gen_btn:
         anrede = contact_name.strip() if contact_name.strip() else "…"
-        response_prompt = f"""Schreibe eine sehr kurze, direkte Antwortnachricht (3–4 Sätze, kein Blabla) auf Deutsch.
-Ton: professionell aber persönlich, wie eine WhatsApp/kurze E-Mail.
+        response_prompt = f"""Schreibe eine kompakte, persönliche Antwortnachricht auf Deutsch (ca. 6–8 Sätze).
+Ton: warm, professionell, direkt – wie eine gut formulierte kurze E-Mail, kein Marketingsprech.
 
-Struktur:
+Aufbau:
 1. Kurze Begrüßung mit "{anrede}"
-2. Wir haben entsprechend kalkuliert: {preis_info}
-3. 2 Personalvorschläge wurden beigefügt
-4. Bitte kurz melden, damit wir die Pflegekraft sichern können
+2. Gehe kurz und konkret auf die Situation ein (wer wird betreut, besondere Anforderungen aus der Anfrage) – nur 1–2 Sätze, nicht alles aufzählen
+3. Wir haben entsprechend kalkuliert: {preis_info}
+4. 2 passende Personalvorschläge wurden beigefügt
+5. Freundliche aber klare Bitte um kurze Rückmeldung, damit wir die Pflegekraft sichern können
 
-Anfrage-Kontext (nur zur Orientierung, NICHT ausführlich wiederholen):
-{anfrage_text if anfrage_text else "(keine Angabe)"}
+Anfrage:
+{anfrage_text if anfrage_text else "(keine Angabe – schreibe allgemein)"}
 
-Antworte NUR mit dem fertigen Text, keine Betreffzeile."""
+Antworte NUR mit dem fertigen Text, keine Betreffzeile, keine Grußformel am Ende."""
 
         with st.spinner("…"):
             try:
