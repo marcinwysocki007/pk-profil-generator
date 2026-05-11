@@ -558,24 +558,30 @@ with tab2:
 
     # ── Partnerprovision ──────────────────────────────────────────
     st.divider()
-    provision_pct = st.number_input("Partnerprovision (%)", min_value=0.0, max_value=100.0,
-                                    value=st.session_state.get("calc_provision_val", 0.0),
-                                    step=0.5, format="%.1f", key="calc_provision")
-    st.session_state["calc_provision_val"] = provision_pct
-    provision_eur = round(total * provision_pct / 100, 2)
+    col_pv1, col_pv2 = st.columns([2, 1])
+    with col_pv1:
+        provision_input = st.number_input("Partnerprovision (€)", min_value=0.0,
+                                          value=0.0, step=1.0, format="%.2f",
+                                          key="calc_provision")
+    with col_pv2:
+        provision_unit = st.radio("pro", ["Monat", "Tag"], horizontal=True,
+                                  key="calc_provision_unit")
+
+    provision_eur = provision_input if provision_unit == "Monat" else provision_input * 30
     gesamt        = total + provision_eur
 
     # ── Preisanzeige ──────────────────────────────────────────────
     def fmt_eur(v):
         return f"{v:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
 
-    if surcharges or provision_pct > 0:
+    if surcharges or provision_input > 0:
         with st.expander("Aufschläge im Detail", expanded=False):
             st.write(f"Basispreis 24h-Betreuung: **{fmt_eur(BASE_PRICE)}**")
             for cat, sel, val in surcharges:
                 st.write(f"+ {cat} ({sel}): **+{fmt_eur(val)}**")
-            if provision_pct > 0:
-                st.write(f"+ Partnerprovision ({provision_pct:.1f}%): **+{fmt_eur(provision_eur)}**")
+            if provision_input > 0:
+                label = f"{fmt_eur(provision_input)}/Tag × 30" if provision_unit == "Tag" else f"{fmt_eur(provision_input)}/Monat"
+                st.write(f"+ Partnerprovision ({label}): **+{fmt_eur(provision_eur)}**")
 
     col_m, col_t = st.columns(2)
     with col_m:
