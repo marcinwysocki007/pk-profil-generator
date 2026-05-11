@@ -696,8 +696,9 @@ with tab2:
         response_prompt = f"""Analysiere die folgende Anfrage und erstelle zwei Dinge:
 
 1. Eine kompakte, persönliche Antwortnachricht auf Deutsch (ca. 6–8 Sätze).
-   Ton: locker-professionell, direkt, menschlich – kein Marketingsprech, keine Floskeln wie
-   "sorgfältig geprüft", "kalkuliert", "entsprechend" oder "Vertrauen". Einfach natürlich reden.
+   Ton: geschäftlich und professionell, aber nicht steif oder übertrieben förmlich –
+   keine leeren Floskeln wie "sorgfältig geprüft", "entsprechend kalkuliert" oder "Vertrauen".
+   Sachlich, klar, freundlich.
    Aufbau:
    - Extrahiere den Namen des Absenders (wer schreibt die Anfrage) und begrüße ihn/sie direkt
    - Nenne kurz die Situation (Patient, Ort) und 1–2 konkrete Anforderungen – sachlich, knapp
