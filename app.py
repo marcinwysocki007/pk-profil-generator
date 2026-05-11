@@ -664,3 +664,96 @@ with tab2:
         st.metric("💶 Monatssatz", fmt_eur(gesamt))
     with col_t:
         st.metric("📅 Tagessatz", fmt_eur(gesamt / 30))
+
+    # ── Kalkulation speichern ─────────────────────────────────────
+    st.divider()
+    summary_lines = [
+        f"Preiskalkulation – {datetime.now().strftime('%d.%m.%Y %H:%M')}",
+        "=" * 42,
+    ]
+    for cat in PRICE_CONFIG:
+        sel_val = st.session_state.get(f"calc_radio_{cat}", list(PRICE_CONFIG[cat].keys())[0])
+        surcharge = PRICE_CONFIG[cat][sel_val]
+        suffix = f"  (+{fmt_eur(surcharge)})" if surcharge > 0 else ""
+        summary_lines.append(f"{cat}: {sel_val}{suffix}")
+    summary_lines += ["=" * 42, f"Basispreis:  {fmt_eur(BASE_PRICE)}"]
+    for cat, sel, val in surcharges:
+        summary_lines.append(f"+ {cat} ({sel}): +{fmt_eur(val)}")
+    if provision_input > 0:
+        prov_label = f"{fmt_eur(provision_input)}/Tag × 30" if provision_unit == "Tag" else f"{fmt_eur(provision_input)}/Monat"
+        summary_lines.append(f"+ Partnerprovision ({prov_label}): +{fmt_eur(provision_eur)}")
+    summary_lines += ["=" * 42, f"Monatssatz:  {fmt_eur(gesamt)}", f"Tagessatz:   {fmt_eur(gesamt / 30)}"]
+    anfrage_text = st.session_state.get("calc_text", "").strip()
+    if anfrage_text:
+        summary_lines += ["", "Anfrage:", anfrage_text]
+    summary_text = "\n".join(summary_lines)
+
+    col_dl, col_gen = st.columns(2)
+    with col_dl:
+        st.download_button(
+            "💾 Kalkulation speichern",
+            data=summary_text.encode("utf-8"),
+            file_name=f"Kalkulation_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+            mime="text/plain",
+            use_container_width=True,
+        )
+
+    # ── Antworttext generieren ────────────────────────────────────
+    st.subheader("✉️ Antwort auf Anfrage")
+
+    # Preisinfo aufbauen
+    monat_str = fmt_eur(gesamt)
+    tag_str   = fmt_eur(gesamt / 30)
+    if provision_input > 0:
+        preis_info = (
+            f"Unser Preis beträgt {fmt_eur(total)} pro Monat zzgl. einer Partnerprovision "
+            f"von {fmt_eur(provision_eur)} – Gesamtmonatssatz {monat_str} (Tagessatz {tag_str})."
+        )
+    else:
+        preis_info = f"Unser Monatssatz beträgt {monat_str} (Tagessatz {tag_str})."
+
+    # Gewählte Optionen als Kontext für Claude
+    optionen_text = "\n".join(
+        f"- {cat}: {st.session_state.get(f'calc_radio_{cat}', list(PRICE_CONFIG[cat].keys())[0])}"
+        for cat in PRICE_CONFIG
+    )
+
+    if st.button("Antwort generieren", key="gen_response", use_container_width=True, icon="✍️"):
+        response_prompt = f"""Du bist ein professioneller Kundenbetreuer bei einem 24h-Pflegevermittlungs-Unternehmen.
+Schreibe eine kurze, professionelle Antwort auf eine Anfrage auf Deutsch.
+
+Die Antwort soll:
+- Warmherzig auf die konkreten Wünsche und Bedürfnisse aus der Anfrage eingehen
+- Den Preis klar nennen: {preis_info}
+- Erwähnen, dass wir passende Profile bereits übermitteln werden
+- Freundlich aber klar darauf hinweisen, dass bei Interesse eine schnelle Rückmeldung nötig ist, um die Pflegekraft zu sichern
+- Professionell und persönlich klingen, ca. 150–200 Wörter
+- Ohne Betreffzeile, direkt als Fließtext beginnen
+
+Anfragedaten (aus Kalkulator):
+{optionen_text}
+
+Anfrage-Originaltext:
+{anfrage_text if anfrage_text else "(kein Freitext – beziehe dich auf die Kalkulatordaten)"}
+
+Antworte NUR mit dem fertigen Antworttext."""
+
+        with st.spinner("Antwort wird generiert…"):
+            try:
+                resp = get_client().messages.create(
+                    model="claude-sonnet-4-6",
+                    max_tokens=600,
+                    messages=[{"role": "user", "content": response_prompt}],
+                )
+                st.session_state["calc_response"] = resp.content[0].text
+            except Exception as e:
+                st.error(f"Fehler: {e}")
+
+    if st.session_state.get("calc_response"):
+        st.text_area(
+            "Generierter Antworttext (bearbeitbar & kopierbar)",
+            value=st.session_state["calc_response"],
+            height=280,
+            key="calc_response_area",
+        )
+        st.caption("↑ Text anklicken → Strg+A / ⌘A → Strg+C / ⌘C zum Kopieren")
