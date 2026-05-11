@@ -556,13 +556,29 @@ with tab2:
             surcharges.append((cat, selected, surcharge))
         total += surcharge
 
-    # ── Preisanzeige ──────────────────────────────────────────────
+    # ── Partnerprovision ──────────────────────────────────────────
     st.divider()
-    if surcharges:
-        with st.expander("Aufschläge im Detail", expanded=False):
-            st.write(f"Basispreis 24h-Betreuung: **{BASE_PRICE:,} €**".replace(",", "."))
-            for cat, sel, val in surcharges:
-                st.write(f"+ {cat} ({sel}): **+{val:,} €**".replace(",", "."))
+    provision_pct = st.number_input("Partnerprovision (%)", min_value=0.0, max_value=100.0,
+                                    value=st.session_state.get("calc_provision_val", 0.0),
+                                    step=0.5, format="%.1f", key="calc_provision")
+    st.session_state["calc_provision_val"] = provision_pct
+    provision_eur = round(total * provision_pct / 100, 2)
+    gesamt        = total + provision_eur
 
-    st.metric(label="💶 Monatlicher Gesamtpreis",
-              value=f"{total:,.2f} €".replace(",", "X").replace(".", ",").replace("X", "."))
+    # ── Preisanzeige ──────────────────────────────────────────────
+    def fmt_eur(v):
+        return f"{v:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    if surcharges or provision_pct > 0:
+        with st.expander("Aufschläge im Detail", expanded=False):
+            st.write(f"Basispreis 24h-Betreuung: **{fmt_eur(BASE_PRICE)}**")
+            for cat, sel, val in surcharges:
+                st.write(f"+ {cat} ({sel}): **+{fmt_eur(val)}**")
+            if provision_pct > 0:
+                st.write(f"+ Partnerprovision ({provision_pct:.1f}%): **+{fmt_eur(provision_eur)}**")
+
+    col_m, col_t = st.columns(2)
+    with col_m:
+        st.metric("💶 Monatssatz", fmt_eur(gesamt))
+    with col_t:
+        st.metric("📅 Tagessatz", fmt_eur(gesamt / 30))
