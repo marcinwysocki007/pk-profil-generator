@@ -701,7 +701,7 @@ with tab2:
    - Extrahiere den Namen des Absenders (wer schreibt die Anfrage) und begrüße ihn/sie direkt
    - Nenne den Namen des Patienten/der Patienten und den Ort
    - Gehe kurz auf die Pflegesituation ein (1–2 Sätze, nicht alles aufzählen)
-   - Wir haben entsprechend kalkuliert: {preis_info}
+   - Wir haben entsprechend kalkuliert: {preis_info}, zzgl. Fahrtkosten 125 € pro Strecke
    - 2 passende Personalvorschläge wurden beigefügt
    - Bitte um kurze Rückmeldung, damit wir die Pflegekraft sichern können
    - Schließe mit einem passenden Smiley ab (z.B. 😊)
@@ -748,8 +748,7 @@ Antworte NUR mit diesem JSON, kein Markdown drumherum:
         }
         entry = {
             "datum":       datetime.now().strftime("%d.%m.%Y %H:%M"),
-            "label":       label_input.strip() or contact_name.strip() or "Ohne Bezeichnung",
-            "kontakt":     contact_name.strip(),
+            "label":       label_input.strip() or "Ohne Bezeichnung",
             "anfrage":     anfrage_text,
             "selections":  selections,
             "provision":   provision_input,
