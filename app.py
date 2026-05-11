@@ -7,6 +7,7 @@ import io
 import base64
 import hashlib
 import tempfile
+from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
 from PIL import Image
@@ -218,6 +219,82 @@ def make_pdf(daten: dict) -> tuple[str, bytes]:
         return filename, f.read()
 
 
+# ── Preiskalkulator Konfiguration ────────────────────────────────
+
+BASE_PRICE = 2150
+
+PRICE_CONFIG = OrderedDict([
+    ("Betreuung für",               OrderedDict([("1 Person", 0), ("Ehepaar", 300)])),
+    ("Deutschkenntnisse",           OrderedDict([("Grundlegend", 0), ("Kommunikativ", 300), ("Sehr gut", 600)])),
+    ("Erfahrung",                   OrderedDict([("Einsteiger", 0), ("Erfahren", 0), ("Sehr erfahren", 150)])),
+    ("Führerschein",                OrderedDict([("Egal", 0), ("Ja", 100), ("Nein", 0)])),
+    ("Geschlecht",                  OrderedDict([("Egal", 0), ("Weiblich", 0), ("Männlich", 0)])),
+    ("Mobilität",                   OrderedDict([
+        ("Mobil – geht selbstständig", 0),
+        ("Eingeschränkt – nur mit Rollator", 0),
+        ("Auf Rollstuhl angewiesen", 100),
+        ("Bettlägerig", 100),
+    ])),
+    ("Nachteinsätze",               OrderedDict([("Nein", 0), ("Gelegentlich", 50), ("Täglich (1×)", 100), ("Mehrmals nachts", 300)])),
+    ("Pflegegrad",                  OrderedDict([
+        ("Kein Pflegegrad", 0), ("Pflegegrad 1", 0), ("Pflegegrad 2", 0),
+        ("Pflegegrad 3", 0), ("Pflegegrad 4", 0), ("Pflegegrad 5", 50),
+    ])),
+    ("Weitere Personen im Haushalt", OrderedDict([("Nein", 0), ("Ja", 200)])),
+])
+
+PRICE_PROMPT = """\
+Analysiere die Patienteninformationen und ordne sie den Preiskategorien zu.
+Wähle immer exakt eine der aufgeführten Optionen – kein Freitext.
+
+Kategorien und gültige Optionen:
+- Betreuung für: "1 Person" | "Ehepaar"
+- Deutschkenntnisse: "Grundlegend" | "Kommunikativ" | "Sehr gut"
+- Erfahrung: "Einsteiger" | "Erfahren" | "Sehr erfahren"
+- Führerschein: "Egal" | "Ja" | "Nein"
+- Geschlecht: "Egal" | "Weiblich" | "Männlich"
+- Mobilität: "Mobil – geht selbstständig" | "Eingeschränkt – nur mit Rollator" | "Auf Rollstuhl angewiesen" | "Bettlägerig"
+- Nachteinsätze: "Nein" | "Gelegentlich" | "Täglich (1×)" | "Mehrmals nachts"
+- Pflegegrad: "Kein Pflegegrad" | "Pflegegrad 1" | "Pflegegrad 2" | "Pflegegrad 3" | "Pflegegrad 4" | "Pflegegrad 5"
+- Weitere Personen im Haushalt: "Nein" | "Ja"
+
+Wenn eine Info fehlt oder unklar ist → günstigste/neutralste Option.
+Antworte NUR mit dem JSON-Objekt:
+{
+  "Betreuung für": "...",
+  "Deutschkenntnisse": "...",
+  "Erfahrung": "...",
+  "Führerschein": "...",
+  "Geschlecht": "...",
+  "Mobilität": "...",
+  "Nachteinsätze": "...",
+  "Pflegegrad": "...",
+  "Weitere Personen im Haushalt": "..."
+}"""
+
+
+def extract_price_fields(text: str, image_files: list, client) -> dict:
+    """Liest Patienteninfos aus und gibt Preiskategorien-Zuordnung zurück."""
+    content = []
+    for f in image_files:
+        data = f.read()
+        mt = "image/jpeg" if f.name.lower().endswith((".jpg", ".jpeg")) else "image/png"
+        content.append({"type": "image",
+                         "source": {"type": "base64", "media_type": mt,
+                                    "data": base64.b64encode(data).decode()}})
+    if text.strip():
+        content.append({"type": "text", "text": f"Patienteninfos:\n{text.strip()}"})
+    content.append({"type": "text", "text": PRICE_PROMPT})
+
+    resp = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=800,
+        messages=[{"role": "user", "content": content}],
+    )
+    raw = resp.content[0].text
+    return json.loads(raw[raw.find("{"):raw.rfind("}") + 1])
+
+
 # ── Streamlit Layout ─────────────────────────────────────────────
 
 st.set_page_config(page_title="Pflegeprofil Generator", page_icon="📋", layout="centered")
@@ -355,66 +432,137 @@ st.markdown(
 
 st.divider()
 
-col1, col2 = st.columns(2)
-with col1:
-    photo_file = st.file_uploader("Foto der Pflegekraft",
-                                  type=["jpg","jpeg","png"])
-with col2:
-    screenshot_files = st.file_uploader("Portal-Screenshots (1–10)",
-                                        type=["jpg","jpeg","png"],
-                                        accept_multiple_files=True)
+tab1, tab2 = st.tabs(["📋 Pflegeprofil erstellen", "💰 Preiskalkulator"])
 
-if st.button("Profil erstellen", type="primary", use_container_width=True, icon="🚀"):
-    if not photo_file:
-        st.error("Bitte ein Foto hochladen.")
-    elif not screenshot_files:
-        st.error("Bitte mindestens einen Portal-Screenshot hochladen.")
+# ════════════════════════════════════════════════════════════════
+# TAB 1 – Pflegeprofil
+# ════════════════════════════════════════════════════════════════
+with tab1:
+    col1, col2 = st.columns(2)
+    with col1:
+        photo_file = st.file_uploader("Foto der Pflegekraft",
+                                      type=["jpg","jpeg","png"])
+    with col2:
+        screenshot_files = st.file_uploader("Portal-Screenshots (1–10)",
+                                            type=["jpg","jpeg","png"],
+                                            accept_multiple_files=True)
+
+    if st.button("Profil erstellen", type="primary", use_container_width=True, icon="🚀"):
+        if not photo_file:
+            st.error("Bitte ein Foto hochladen.")
+        elif not screenshot_files:
+            st.error("Bitte mindestens einen Portal-Screenshot hochladen.")
+        else:
+            with st.status("Daten werden ausgelesen…", expanded=True) as status:
+                try:
+                    st.write("Claude liest die Screenshots aus…")
+                    extracted = extract_from_images(screenshot_files, get_client())
+                    name = extracted.get("name", "Unbekannt")
+                    st.write(f"Erkannt: **{name}** · {extracted.get('verfuegbarkeit','?')}")
+
+                    suffix = Path(photo_file.name).suffix
+                    tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
+                    tmp.write(photo_file.read())
+                    tmp.close()
+
+                    daten = build_daten(extracted, tmp.name, selected_co)
+
+                    st.write("PDF wird generiert…")
+                    filename, pdf_bytes = make_pdf(daten)
+                    os.unlink(tmp.name)
+
+                    status.update(label="Fertig!", state="complete")
+                    st.success(f"Profil für **{name}** ({selected_name}) erstellt")
+                    st.download_button("PDF herunterladen", data=pdf_bytes,
+                                       file_name=filename, mime="application/pdf",
+                                       use_container_width=True, icon="📥")
+
+                except json.JSONDecodeError:
+                    status.update(state="error")
+                    st.error("Daten konnten nicht ausgelesen werden.")
+                except Exception as e:
+                    status.update(state="error")
+                    st.error(f"Fehler: {e}")
+
+    st.divider()
+    st.subheader("Gespeicherte Profile")
+    pdf_files = sorted(STORAGE_DIR.glob("*.pdf"), key=os.path.getmtime, reverse=True)
+    if pdf_files:
+        for pdf_path in pdf_files[:30]:
+            mtime = datetime.fromtimestamp(os.path.getmtime(pdf_path))
+            col_a, col_b = st.columns([4, 1])
+            with col_a:
+                st.write(f"📄 {pdf_path.stem} — {mtime.strftime('%d.%m.%Y %H:%M')}")
+            with col_b:
+                with open(pdf_path, "rb") as f:
+                    st.download_button("↓", data=f.read(), file_name=pdf_path.name,
+                                       mime="application/pdf", key=str(pdf_path))
     else:
-        with st.status("Daten werden ausgelesen…", expanded=True) as status:
-            try:
-                st.write("Claude liest die Screenshots aus…")
-                extracted = extract_from_images(screenshot_files, get_client())
-                name = extracted.get("name", "Unbekannt")
-                st.write(f"Erkannt: **{name}** · {extracted.get('verfuegbarkeit','?')}")
+        st.info("Noch keine Profile erstellt.")
 
-                suffix = Path(photo_file.name).suffix
-                tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
-                tmp.write(photo_file.read())
-                tmp.close()
 
-                daten = build_daten(extracted, tmp.name, selected_co)
+# ════════════════════════════════════════════════════════════════
+# TAB 2 – Preiskalkulator
+# ════════════════════════════════════════════════════════════════
+with tab2:
+    st.caption("Patienteninfos hochladen oder einfügen – Felder werden automatisch vorausgefüllt.")
 
-                st.write("PDF wird generiert…")
-                filename, pdf_bytes = make_pdf(daten)
-                os.unlink(tmp.name)
+    # ── Patienteninfos hochladen ──────────────────────────────────
+    with st.expander("📂 Patienteninfos auslesen (optional)", expanded=True):
+        patient_text  = st.text_area("Freitext (Anfrage, Beschreibung, Notizen…)",
+                                     height=120, key="calc_text",
+                                     placeholder="z.B. 'Ehepaar, PG3, braucht Rollstuhl, keine Nachteinsätze…'")
+        patient_imgs  = st.file_uploader("Oder Screenshots / Bilder hochladen",
+                                         type=["jpg","jpeg","png"],
+                                         accept_multiple_files=True, key="calc_imgs")
+        if st.button("Felder automatisch ausfüllen", key="calc_extract",
+                     use_container_width=True, icon="🔍"):
+            if not patient_text.strip() and not patient_imgs:
+                st.warning("Bitte Text eingeben oder Bilder hochladen.")
+            else:
+                with st.spinner("Claude liest die Anforderungen aus…"):
+                    try:
+                        result = extract_price_fields(patient_text, patient_imgs or [], get_client())
+                        for cat, options in PRICE_CONFIG.items():
+                            val = result.get(cat)
+                            if val and val in options:
+                                st.session_state[f"calc_sel_{cat}"] = list(options.keys()).index(val)
+                        st.success("Felder wurden vorausgefüllt – bitte prüfen und anpassen.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Fehler beim Auslesen: {e}")
 
-                status.update(label="Fertig!", state="complete")
-                st.success(f"Profil für **{name}** ({selected_name}) erstellt")
-                st.download_button("PDF herunterladen", data=pdf_bytes,
-                                   file_name=filename, mime="application/pdf",
-                                   use_container_width=True, icon="📥")
+    st.divider()
 
-            except json.JSONDecodeError:
-                status.update(state="error")
-                st.error("Daten konnten nicht ausgelesen werden.")
-            except Exception as e:
-                status.update(state="error")
-                st.error(f"Fehler: {e}")
+    # ── Preisfelder ───────────────────────────────────────────────
+    total = BASE_PRICE
+    surcharges = []
 
-# ── Gespeicherte Profile ─────────────────────────────────────────
-st.divider()
-st.subheader("Gespeicherte Profile")
+    for cat, options in PRICE_CONFIG.items():
+        opt_list   = list(options.keys())
+        default_i  = st.session_state.get(f"calc_sel_{cat}", 0)
+        default_i  = min(default_i, len(opt_list) - 1)
 
-pdf_files = sorted(STORAGE_DIR.glob("*.pdf"), key=os.path.getmtime, reverse=True)
-if pdf_files:
-    for pdf_path in pdf_files[:30]:
-        mtime = datetime.fromtimestamp(os.path.getmtime(pdf_path))
-        col_a, col_b = st.columns([4, 1])
-        with col_a:
-            st.write(f"📄 {pdf_path.stem} — {mtime.strftime('%d.%m.%Y %H:%M')}")
-        with col_b:
-            with open(pdf_path, "rb") as f:
-                st.download_button("↓", data=f.read(), file_name=pdf_path.name,
-                                   mime="application/pdf", key=str(pdf_path))
-else:
-    st.info("Noch keine Profile erstellt.")
+        # Label mit Aufpreis-Hinweisen
+        def fmt(o, opts=options):
+            p = opts[o]
+            return f"{o}  (+{p} €)" if p > 0 else o
+
+        selected = st.radio(cat, opt_list, index=default_i,
+                            format_func=fmt, horizontal=True,
+                            key=f"calc_radio_{cat}")
+        surcharge = options[selected]
+        if surcharge > 0:
+            surcharges.append((cat, selected, surcharge))
+        total += surcharge
+
+    # ── Preisanzeige ──────────────────────────────────────────────
+    st.divider()
+    if surcharges:
+        with st.expander("Aufschläge im Detail", expanded=False):
+            st.write(f"Basispreis 24h-Betreuung: **{BASE_PRICE:,} €**".replace(",", "."))
+            for cat, sel, val in surcharges:
+                st.write(f"+ {cat} ({sel}): **+{val:,} €**".replace(",", "."))
+
+    st.metric(label="💶 Monatlicher Gesamtpreis",
+              value=f"{total:,.2f} €".replace(",", "X").replace(".", ",").replace("X", "."))
