@@ -94,6 +94,74 @@ def load_companies() -> dict:
 def save_companies(data: dict):
     with open(COMPANIES_FILE, "w") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+    save_companies_to_github(data)
+
+
+def save_companies_to_github(data: dict):
+    """Schreibt companies.json via GitHub API zurück ins Repo (nur wenn Token vorhanden)."""
+    import urllib.request
+    import urllib.error
+
+    token = st.secrets.get("GITHUB_TOKEN", "") or os.environ.get("GITHUB_TOKEN", "")
+    repo  = st.secrets.get("GITHUB_REPO", "") or os.environ.get("GITHUB_REPO", "")
+    if not token or not repo:
+        return  # Kein GitHub-Token → nur lokal speichern
+
+    path = "companies.json"
+    url  = f"https://api.github.com/repos/{repo}/contents/{path}"
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github.v3+json",
+        "Content-Type": "application/json",
+        "User-Agent": "PK-Profil-App",
+    }
+
+    # Aktuellen SHA holen
+    sha = None
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req) as resp:
+            file_info = json.loads(resp.read())
+        sha = file_info["sha"]
+    except urllib.error.HTTPError as e:
+        if e.code != 404:
+            return  # Unbekannter Fehler → abbrechen
+
+    # Inhalt hochladen
+    content_b64 = base64.b64encode(
+        json.dumps(data, indent=2, ensure_ascii=False).encode()
+    ).decode()
+
+    body_dict = {"message": "Update companies.json", "content": content_b64}
+    if sha:
+        body_dict["sha"] = sha
+
+    try:
+        req = urllib.request.Request(
+            url, data=json.dumps(body_dict).encode(), headers=headers, method="PUT"
+        )
+        urllib.request.urlopen(req)
+    except Exception:
+        pass  # Lokale Kopie ist gespeichert – Fehler ignorieren
+
+
+def get_logo_path(comp: dict) -> str:
+    """Gibt Pfad zum Logo zurück – dekodiert aus base64, wenn lokale Datei fehlt."""
+    logo_path = comp.get("logo", "")
+    if logo_path and os.path.exists(logo_path):
+        return logo_path
+    logo_data = comp.get("logo_data", "")
+    if not logo_data:
+        return ""
+    try:
+        ext = comp.get("logo_ext", ".png")
+        tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
+        tmp.write(base64.b64decode(logo_data))
+        tmp.close()
+        return tmp.name
+    except Exception:
+        return ""
+
 
 def slug(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
@@ -171,7 +239,7 @@ def build_daten(ext: dict, foto_path: str, company: dict) -> dict:
     level = int(ext.get("deutsch_level", 2))
     return {
         "color_primary":         company.get("color_primary", "#9C2C8C"),
-        "logo_pfad":             company.get("logo", ""),
+        "logo_pfad":             get_logo_path(company),
         "company_name":          company.get("name", ""),
         "name":                  ext.get("name", "Unbekannt"),
         "nachname_initial":      ext.get("nachname_initial", "").upper()[:1],
@@ -323,20 +391,23 @@ with st.sidebar:
                                                key=f"l_{cid}")
                 if logo_upload:
                     logo_bytes = logo_upload.read()
-                    logo_upload.seek(0)
                     logo_path = str(COMPANIES_DIR / f"{cid}_logo{Path(logo_upload.name).suffix}")
                     with open(logo_path, "wb") as f:
                         f.write(logo_bytes)
-                    comp["logo"] = logo_path
+                    comp["logo"]      = logo_path
+                    comp["logo_data"] = base64.b64encode(logo_bytes).decode()
+                    comp["logo_ext"]  = Path(logo_upload.name).suffix
                     logo_hash = hashlib.md5(logo_bytes).hexdigest()
                     if st.session_state.get(f"_logo_hash_{cid}") != logo_hash:
                         colors_list = extract_dominant_colors(logo_bytes)
-                        st.session_state[f"_colors_{cid}"]   = colors_list
-                        st.session_state[f"_auto_{cid}"]     = colors_list[0]
+                        st.session_state[f"_colors_{cid}"]    = colors_list
+                        st.session_state[f"_auto_{cid}"]      = colors_list[0]
                         st.session_state[f"_logo_hash_{cid}"] = logo_hash
-                    st.image(logo_path, width=120)
+                    st.image(logo_bytes, width=120)
                 elif comp.get("logo") and os.path.exists(comp["logo"]):
                     st.image(comp["logo"], width=120)
+                elif comp.get("logo_data"):
+                    st.image(base64.b64decode(comp["logo_data"]), width=120)
 
                 colors_list = st.session_state.get(f"_colors_{cid}", [])
                 if colors_list:
@@ -391,15 +462,22 @@ with st.sidebar:
         if new_co_name.strip():
             cid = slug(new_co_name)
             logo_path = ""
+            logo_b64  = ""
+            logo_ext  = ""
             if new_co_logo:
                 new_co_logo.seek(0)
+                logo_bytes_new = new_co_logo.read()
                 logo_path = str(COMPANIES_DIR / f"{cid}_logo{Path(new_co_logo.name).suffix}")
                 with open(logo_path, "wb") as f:
-                    f.write(new_co_logo.read())
+                    f.write(logo_bytes_new)
+                logo_b64 = base64.b64encode(logo_bytes_new).decode()
+                logo_ext = Path(new_co_logo.name).suffix
             companies[cid] = {
                 "name":          new_co_name.strip(),
                 "color_primary": new_co_color,
                 "logo":          logo_path,
+                "logo_data":     logo_b64,
+                "logo_ext":      logo_ext,
             }
             save_companies(companies)
             st.session_state.pop("_new_co_auto_color", None)

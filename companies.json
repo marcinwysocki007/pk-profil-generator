@@ -2,11 +2,22 @@
   "primundus": {
     "name": "PRIMUNDUS",
     "logo": "",
+    "logo_data": "",
+    "logo_ext": "",
     "color_primary": "#6B491A"
   },
   "mamamia": {
     "name": "mamamia",
     "logo": "",
+    "logo_data": "",
+    "logo_ext": "",
     "color_primary": "#9C2C8C"
+  },
+  "pflegena": {
+    "name": "Pflegena",
+    "logo": "",
+    "logo_data": "",
+    "logo_ext": "",
+    "color_primary": "#1A5276"
   }
 }
