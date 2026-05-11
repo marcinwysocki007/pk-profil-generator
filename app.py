@@ -697,7 +697,7 @@ with tab2:
 
 1. Einen kurzen Geschäftsbrief auf Deutsch. Halte dich exakt an diese Struktur – nicht mehr, nicht weniger:
 
-   "Guten Tag [Absendername aus der Anfrage],
+   "Guten Tag [nur Herr/Frau + Nachname des Absenders, z.B. 'Herr Wilde' – niemals Vorname],
 
    für Ihren Kunden [Patientenname und Ort aus der Anfrage] übermittle ich Ihnen 2 passende Personalvorschläge.
 
@@ -709,6 +709,7 @@ with tab2:
    - Nur diese 4 Blöcke, nichts weiter hinzufügen
    - Keine Aufzählung von Anforderungen oder Pflegedetails
    - Falls kein Absendername erkennbar: "Guten Tag,"
+   - Niemals den Vornamen verwenden, immer nur Herr/Frau + Nachname
    - Falls kein Patientenname erkennbar: "für Ihren Kunden"
 
 2. Eine kurze interne Bezeichnung (z.B. "Familie Müller – Berlin, PG3")
