@@ -693,28 +693,32 @@ with tab2:
         preis_info = f"unser Monatssatz: {monat_str}"
 
     if st.button("✍️ Antwort generieren", key="gen_response", use_container_width=True):
-        response_prompt = f"""Analysiere die folgende Anfrage und erstelle zwei Dinge:
+        response_prompt = f"""Erstelle aus der folgenden Anfrage zwei Dinge:
 
-1. Eine kompakte, persönliche Antwortnachricht auf Deutsch (ca. 6–8 Sätze).
-   Ton: geschäftlich und professionell, aber nicht steif oder übertrieben förmlich –
-   keine leeren Floskeln wie "sorgfältig geprüft", "entsprechend kalkuliert" oder "Vertrauen".
-   Sachlich, klar, freundlich.
-   Aufbau:
-   - Extrahiere den Namen des Absenders (wer schreibt die Anfrage) und begrüße ihn/sie direkt
-   - Nenne kurz die Situation (Patient, Ort) und 1–2 konkrete Anforderungen – sachlich, knapp
-   - Preis nennen: {preis_info}, zzgl. Fahrtkosten 125 € pro Strecke
-   - 2 passende Profile wurden beigefügt
-   - Kurze Bitte um Rückmeldung, damit wir die Pflegekraft sichern können
-   - Schließe mit einem Smiley ab (z.B. 😊)
+1. Einen kurzen Geschäftsbrief auf Deutsch. Halte dich exakt an diese Struktur – nicht mehr, nicht weniger:
 
-2. Eine kurze interne Bezeichnung für die Kalkulation (z.B. "Familie Müller – Berlin, PG3")
+   "Guten Tag [Absendername aus der Anfrage],
+
+   für Ihren Kunden [Patientenname und Ort aus der Anfrage] übermittle ich Ihnen 2 passende Personalvorschläge.
+
+   Die Kosten liegen bei {preis_info}, zzgl. Fahrtkosten 125 € pro Strecke.
+
+   Bitte geben Sie uns kurz Bescheid, damit wir die Pflegekraft festmachen können. 😊"
+
+   Regeln:
+   - Nur diese 4 Blöcke, nichts weiter hinzufügen
+   - Keine Aufzählung von Anforderungen oder Pflegedetails
+   - Falls kein Absendername erkennbar: "Guten Tag,"
+   - Falls kein Patientenname erkennbar: "für Ihren Kunden"
+
+2. Eine kurze interne Bezeichnung (z.B. "Familie Müller – Berlin, PG3")
 
 Anfrage:
-{anfrage_text if anfrage_text else "(keine Anfrage – schreibe allgemein, ohne Namen)"}
+{anfrage_text if anfrage_text else "(keine Angabe)"}
 
 Antworte NUR mit diesem JSON, kein Markdown drumherum:
 {{
-  "antwort": "der fertige Antworttext",
+  "antwort": "der fertige Text",
   "bezeichnung": "kurze interne Bezeichnung"
 }}"""
 
