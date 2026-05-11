@@ -686,11 +686,11 @@ with tab2:
 
     if provision_input > 0:
         preis_info = (
-            f"unser Monatssatz: {fmt_eur(total)} zzgl. Ihrer Provision: {fmt_eur(provision_eur)} "
-            f"= Gesamtmonatssatz: {monat_str}"
+            f"{fmt_eur(total)} zzgl. Ihrer Provision {fmt_eur(provision_eur)} "
+            f"= {monat_str} gesamt"
         )
     else:
-        preis_info = f"unser Monatssatz: {monat_str}"
+        preis_info = f"{monat_str} pro Monat"
 
     if st.button("✍️ Antwort generieren", key="gen_response", use_container_width=True):
         response_prompt = f"""Erstelle aus der folgenden Anfrage zwei Dinge:
