@@ -604,7 +604,7 @@ with tab2:
                         for cat, options in PRICE_CONFIG.items():
                             val = result.get(cat)
                             if val and val in options:
-                                st.session_state[f"calc_sel_{cat}"] = list(options.keys()).index(val)
+                                st.session_state[f"calc_radio_{cat}"] = val
                         st.success("Felder wurden vorausgefüllt – bitte prüfen und anpassen.")
                         st.rerun()
                     except Exception as e:
@@ -617,16 +617,14 @@ with tab2:
     surcharges = []
 
     for cat, options in PRICE_CONFIG.items():
-        opt_list   = list(options.keys())
-        default_i  = st.session_state.get(f"calc_sel_{cat}", 0)
-        default_i  = min(default_i, len(opt_list) - 1)
+        opt_list = list(options.keys())
 
         # Label mit Aufpreis-Hinweisen
         def fmt(o, opts=options):
             p = opts[o]
             return f"{o}  (+{p} €)" if p > 0 else o
 
-        selected = st.radio(cat, opt_list, index=default_i,
+        selected = st.radio(cat, opt_list, index=0,
                             format_func=fmt, horizontal=True,
                             key=f"calc_radio_{cat}")
         surcharge = options[selected]
