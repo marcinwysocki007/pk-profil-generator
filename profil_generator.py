@@ -564,23 +564,25 @@ def page2(c, d):
         c.drawString(mx + 5*mm, y - 11*mm, "Weitere Informationen")
         separator(c, mx, y - hdr3, kw)
 
-        ery = y - hdr3
+        # Top-Down: row_y_top startet am Separator und geht nach unten
+        row_y_top = y - hdr3
         for i, (label, value, lila_v) in enumerate(extra_rows):
-            rh_i = row_heights[i]
+            rh_i     = row_heights[i]
+            center_y = row_y_top - rh_i / 2
             if i > 0:
-                separator(c, mx, ery + rh_i, kw)
+                separator(c, mx, row_y_top, kw)
             c.setFillColor(C_GRAU)
             c.setFont("Arial", 9.5)
-            c.drawString(mx + 8*mm, ery + rh_i / 2 - 1.5*mm, label)
+            c.drawString(mx + 8*mm, center_y - 1.5*mm, label)
             c.setFillColor(C_LILA if lila_v else C_DUNKEL)
             c.setFont("Arial-B", 9.5)
             vlines = wrap(c, str(value), "Arial-B", 9.5, val_w)
             n_v    = len(vlines)
-            vy     = ery + rh_i / 2 + (n_v - 1) * 2.25*mm - 1.5*mm
+            vy     = center_y + (n_v - 1) * 2.25*mm - 1.5*mm
             for vl in vlines:
                 c.drawString(val_x, vy, vl)
                 vy -= 4.5*mm
-            ery -= rh_i
+            row_y_top -= rh_i
 
     draw_footer(c, d.get("company_name"), d.get("logo_pfad"))
 

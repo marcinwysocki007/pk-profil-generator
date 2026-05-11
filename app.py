@@ -119,7 +119,7 @@ Regeln:
 - deutsch_level: 0=Keine, 1=Grundkenntnisse, 2=Mittelstufe, 3=Fortgeschritten, 4=Gut
 - mobilitaet: z.B. "Vollständig mobil, Rollstuhlfähig, Bettlägerig"
 - Persönlichkeit + Hobbys: ins Deutsche übersetzen
-- beschreibung: 3–4 professionelle Sätze auf Deutsch – nur Vorname verwenden
+- beschreibung: PFLICHTFELD – verfasse selbst 3–4 professionelle Sätze auf Deutsch, die die Pflegekraft vorstellen. Nutze dafür Erfahrung, Persönlichkeit, Sprachkenntnisse, Nationalität und besondere Fähigkeiten. Nur Vorname verwenden. Niemals leer lassen.
 - besondere_merkmale: akzeptierte Erkrankungen / besondere Fähigkeiten zusammenfassen
 - NIEMALS aufnehmen: Nachname, Telefonnummer, E-Mail, Adresse, Gehalt, Kontonummer
 
