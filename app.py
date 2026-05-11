@@ -687,11 +687,11 @@ with tab2:
 
     if provision_input > 0:
         preis_info = (
-            f"Monatssatz {fmt_eur(total)} zzgl. Partnerprovision {fmt_eur(provision_eur)} "
-            f"= Gesamt {monat_str} ({tag_str}/Tag)"
+            f"unser Monatssatz: {fmt_eur(total)} zzgl. Ihrer Provision: {fmt_eur(provision_eur)} "
+            f"= Gesamtmonatssatz: {monat_str}"
         )
     else:
-        preis_info = f"Monatssatz {monat_str} ({tag_str}/Tag)"
+        preis_info = f"unser Monatssatz: {monat_str}"
 
     col_name, col_btn = st.columns([2, 1])
     with col_name:
@@ -709,10 +709,11 @@ Ton: warm, professionell, direkt – wie eine gut formulierte kurze E-Mail, kein
 
 Aufbau:
 1. Kurze Begrüßung mit "{anrede}"
-2. Gehe kurz und konkret auf die Situation ein (wer wird betreut, besondere Anforderungen aus der Anfrage) – nur 1–2 Sätze, nicht alles aufzählen
-3. Wir haben entsprechend kalkuliert: {preis_info}
-4. 2 passende Personalvorschläge wurden beigefügt
-5. Freundliche aber klare Bitte um kurze Rückmeldung, damit wir die Pflegekraft sichern können
+2. Nenne den Namen des zu betreuenden Kunden und den Ort/die Stadt – wenn aus der Anfrage erkennbar, sonst weglassen
+3. Gehe kurz und konkret auf die Pflegesituation ein (1–2 Sätze, nicht alles aufzählen)
+4. Wir haben entsprechend kalkuliert: {preis_info}
+5. 2 passende Personalvorschläge wurden beigefügt
+6. Freundliche aber klare Bitte um kurze Rückmeldung, damit wir die Pflegekraft sichern können
 
 Anfrage:
 {anfrage_text if anfrage_text else "(keine Angabe – schreibe allgemein)"}
