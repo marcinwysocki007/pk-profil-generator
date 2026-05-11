@@ -697,17 +697,17 @@ with tab2:
 
 1. Einen kurzen Geschäftsbrief auf Deutsch. Halte dich exakt an diese Struktur – nicht mehr, nicht weniger:
 
-   "Guten Tag [nur Herr/Frau + Nachname des Absenders, z.B. 'Herr Wilde' – niemals Vorname],
+   "Guten Tag [nur Herr/Frau + Nachname des Absenders – niemals Vorname],
 
-   für Ihren Kunden [Patientenname und Ort aus der Anfrage] übermittle ich Ihnen 2 passende Personalvorschläge.
+   für Ihren Kunden [Patientenname und Ort] übermittle ich Ihnen 2 passende Personalvorschläge. [Ein einziger kurzer Satz, der zeigt dass wir die Situation gelesen haben – die wichtigste Anforderung oder Besonderheit in einem Halbsatz, ohne alles aufzuzählen.]
 
    Die Kosten liegen bei {preis_info}, zzgl. Fahrtkosten 125 € pro Strecke.
 
    Bitte geben Sie uns kurz Bescheid, damit wir die Pflegekraft festmachen können. 😊"
 
    Regeln:
-   - Nur diese 4 Blöcke, nichts weiter hinzufügen
-   - Keine Aufzählung von Anforderungen oder Pflegedetails
+   - Genau diese 4 Absätze – der situative Satz gehört zu Absatz 2, kein eigener Absatz
+   - Maximal 1 Satz zur Situation, keine Aufzählung
    - Falls kein Absendername erkennbar: "Guten Tag,"
    - Niemals den Vornamen verwenden, immer nur Herr/Frau + Nachname
    - Falls kein Patientenname erkennbar: "für Ihren Kunden"
