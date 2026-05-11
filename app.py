@@ -718,7 +718,8 @@ Aufbau:
 Anfrage:
 {anfrage_text if anfrage_text else "(keine Angabe – schreibe allgemein)"}
 
-Antworte NUR mit dem fertigen Text, keine Betreffzeile, keine Grußformel am Ende."""
+Schließe mit einem passenden Smiley ab (z.B. 😊) – professionell aber locker.
+Antworte NUR mit dem fertigen Text, keine Betreffzeile, keine Grußformel."""
 
         with st.spinner("…"):
             try:
