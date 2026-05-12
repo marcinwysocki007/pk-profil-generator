@@ -98,18 +98,17 @@ def save_companies(data: dict):
     save_companies_to_github(data)
 
 
-def save_companies_to_github(data: dict):
-    """Schreibt companies.json via GitHub API zurück ins Repo (nur wenn Token vorhanden)."""
+def push_to_github(filename: str, data):
+    """Schreibt eine JSON-Datei via GitHub API ins Repo (nur wenn Token vorhanden)."""
     import urllib.request
     import urllib.error
 
     token = st.secrets.get("GITHUB_TOKEN", "") or os.environ.get("GITHUB_TOKEN", "")
     repo  = st.secrets.get("GITHUB_REPO", "") or os.environ.get("GITHUB_REPO", "")
     if not token or not repo:
-        return  # Kein GitHub-Token → nur lokal speichern
+        return
 
-    path = "companies.json"
-    url  = f"https://api.github.com/repos/{repo}/contents/{path}"
+    url = f"https://api.github.com/repos/{repo}/contents/{filename}"
     headers = {
         "Authorization": f"token {token}",
         "Accept": "application/vnd.github.v3+json",
@@ -117,23 +116,20 @@ def save_companies_to_github(data: dict):
         "User-Agent": "PK-Profil-App",
     }
 
-    # Aktuellen SHA holen
     sha = None
     try:
         req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req) as resp:
-            file_info = json.loads(resp.read())
-        sha = file_info["sha"]
+            sha = json.loads(resp.read())["sha"]
     except urllib.error.HTTPError as e:
         if e.code != 404:
-            return  # Unbekannter Fehler → abbrechen
+            return
 
-    # Inhalt hochladen
     content_b64 = base64.b64encode(
         json.dumps(data, indent=2, ensure_ascii=False).encode()
     ).decode()
 
-    body_dict = {"message": "Update companies.json", "content": content_b64}
+    body_dict = {"message": f"Update {filename}", "content": content_b64}
     if sha:
         body_dict["sha"] = sha
 
@@ -143,7 +139,11 @@ def save_companies_to_github(data: dict):
         )
         urllib.request.urlopen(req)
     except Exception:
-        pass  # Lokale Kopie ist gespeichert – Fehler ignorieren
+        pass
+
+
+def save_companies_to_github(data: dict):
+    push_to_github("companies.json", data)
 
 
 def get_logo_path(comp: dict) -> str:
@@ -168,13 +168,35 @@ def load_calculations() -> list:
     if CALC_FILE.exists():
         with open(CALC_FILE) as f:
             return json.load(f)
+    # Fallback: aus GitHub laden
+    import urllib.request, urllib.error
+    token = st.secrets.get("GITHUB_TOKEN", "") or os.environ.get("GITHUB_TOKEN", "")
+    repo  = st.secrets.get("GITHUB_REPO", "") or os.environ.get("GITHUB_REPO", "")
+    if token and repo:
+        try:
+            url = f"https://api.github.com/repos/{repo}/contents/calculations.json"
+            req = urllib.request.Request(url, headers={
+                "Authorization": f"token {token}",
+                "Accept": "application/vnd.github.v3+json",
+                "User-Agent": "PK-Profil-App",
+            })
+            with urllib.request.urlopen(req) as resp:
+                file_info = json.loads(resp.read())
+            data = json.loads(base64.b64decode(file_info["content"]))
+            with open(CALC_FILE, "w") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+            return data
+        except Exception:
+            pass
     return []
 
 def save_calculation_entry(entry: dict):
     calcs = load_calculations()
     calcs.insert(0, entry)
+    calcs = calcs[:100]
     with open(CALC_FILE, "w") as f:
-        json.dump(calcs[:100], f, indent=2, ensure_ascii=False)
+        json.dump(calcs, f, indent=2, ensure_ascii=False)
+    push_to_github("calculations.json", calcs)
 
 def slug(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
