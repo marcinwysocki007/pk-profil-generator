@@ -1,0 +1,22 @@
+[
+  {
+    "datum": "12.05.2026 16:24",
+    "label": "Ehepaar unbekannt – Ort unbekannt, Hebetechnik, gute Deutschkenntnisse, Pflegena Walde",
+    "anfrage": "Guten Tag,\n \nwenigstens mittlere Deutschkenntnisse sind gewünscht,\nTagessatz IHR PREISANGEBOT + 10 Pflegena = ??  € plus Reisekosten\nWLAN vorhanden, Führerschein egal   \n \nDer Senior benötigt Unterstützung im Haushalt,  Körperhygiene, ein liebes Ehepaar, sie ist nicht pflegeberürftig, er ist aktuell sehr geschwächt, es soll eine liebe erfahrene Betreuerin sein, Hebetechnik erforderlich , falls Transfer Bett/Rollstuhl, er kann kurz stehen, die Ehefrau hilft mit beim Transfer Bett/Rollstuhl\n \nHaben Sie Vorschläge ?                              \n                \nBesten Dank und freundliche Grüße\n \nBernd Walde\nSeniorenbetreuung Pflegena",
+    "selections": {
+      "Betreuung für": "1 Person",
+      "Deutschkenntnisse": "Kommunikativ",
+      "Erfahrung": "Erfahren",
+      "Führerschein": "Egal",
+      "Geschlecht": "Weiblich",
+      "Mobilität": "Eingeschränkt – nur mit Rollator",
+      "Nachteinsätze": "Nein",
+      "Pflegegrad": "Kein Pflegegrad",
+      "Weitere Personen im Haushalt": "Ja"
+    },
+    "provision": 10.0,
+    "provision_unit": "Tag",
+    "monatssatz": 2950.0,
+    "tagessatz": 98.33
+  }
+]
