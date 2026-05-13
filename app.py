@@ -410,8 +410,32 @@ st.set_page_config(page_title="Pflegeprofil Generator", page_icon="📋", layout
 
 st.markdown("""
 <style>
-.block-container { max-width: 760px; }
+.block-container { max-width: 800px; padding-top: 1.5rem; }
 .stButton > button { border-radius: 8px; }
+
+/* Tabs größer und prominenter */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 4px;
+    background: #f0e8e0;
+    padding: 6px;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+}
+.stTabs [data-baseweb="tab"] {
+    height: 48px;
+    padding: 0 28px;
+    font-size: 1.05rem;
+    font-weight: 600;
+    border-radius: 8px;
+    color: #555;
+}
+.stTabs [aria-selected="true"] {
+    background: white !important;
+    color: #1e1e1e !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+}
+.stTabs [data-baseweb="tab-highlight"] { display: none; }
+.stTabs [data-baseweb="tab-border"] { display: none; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -527,36 +551,35 @@ with st.sidebar:
             st.warning("Bitte einen Namen eingeben.")
 
 # ── Hauptbereich: Profil erstellen ───────────────────────────────
-st.title("Pflegeprofil Generator")
-st.caption("Foto + Portal-Screenshots hochladen — PDF wird automatisch erstellt")
-
-companies = load_companies()
-if not companies:
-    st.warning("Bitte zuerst ein Unternehmen in der Seitenleiste anlegen.")
-    st.stop()
-
-company_options = {v["name"]: k for k, v in companies.items()}
-selected_name   = st.selectbox("Unternehmen", list(company_options.keys()))
-selected_id     = company_options[selected_name]
-selected_co     = companies[selected_id]
-
-# Farbvorschau
-st.markdown(
-    f'<div style="display:inline-block;width:18px;height:18px;border-radius:4px;'
-    f'background:{selected_co.get("color_primary","#000")};vertical-align:middle;'
-    f'margin-right:8px"></div>'
-    f'<span style="color:gray;font-size:0.85em">{selected_co.get("color_primary","")}</span>',
-    unsafe_allow_html=True
-)
-
-st.divider()
-
-tab1, tab2 = st.tabs(["📋 Pflegeprofil erstellen", "💰 Preiskalkulator"])
+tab1, tab2 = st.tabs(["📋  Pflegeprofil erstellen", "💰  Preiskalkulator"])
 
 # ════════════════════════════════════════════════════════════════
 # TAB 1 – Pflegeprofil
 # ════════════════════════════════════════════════════════════════
 with tab1:
+    st.title("Pflegeprofil Generator")
+    st.caption("Foto + Portal-Screenshots hochladen — PDF wird automatisch erstellt")
+
+    companies = load_companies()
+    if not companies:
+        st.warning("Bitte zuerst ein Unternehmen in der Seitenleiste anlegen.")
+        st.stop()
+
+    company_options = {v["name"]: k for k, v in companies.items()}
+    selected_name   = st.selectbox("Unternehmen", list(company_options.keys()))
+    selected_id     = company_options[selected_name]
+    selected_co     = companies[selected_id]
+
+    # Farbvorschau
+    st.markdown(
+        f'<div style="display:inline-block;width:18px;height:18px;border-radius:4px;'
+        f'background:{selected_co.get("color_primary","#000")};vertical-align:middle;'
+        f'margin-right:8px"></div>'
+        f'<span style="color:gray;font-size:0.85em">{selected_co.get("color_primary","")}</span>',
+        unsafe_allow_html=True
+    )
+    st.divider()
+
     col1, col2 = st.columns(2)
     with col1:
         photo_file = st.file_uploader("Foto der Pflegekraft",
