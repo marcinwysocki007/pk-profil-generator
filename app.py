@@ -410,10 +410,73 @@ st.set_page_config(page_title="Pflegeprofil Generator", page_icon="📋", layout
 
 st.markdown("""
 <style>
-.block-container { max-width: 800px; padding-top: 1.5rem; }
-.stButton > button { border-radius: 8px; }
+/* ── Layout ── */
+.block-container { max-width: 800px; padding-top: 2rem; padding-bottom: 3rem; }
 
-/* Tabs – clean & modern */
+/* ── Hauptbereich: weißer Inhalts-Container ── */
+section[data-testid="stMain"] > div > div > div > div {
+    background: transparent;
+}
+
+/* ── Eingabefelder: weiß mit klarer Border ── */
+.stTextInput input,
+.stTextArea textarea,
+.stNumberInput input {
+    background: white !important;
+    border: 1.5px solid #e0e0e0 !important;
+    border-radius: 8px !important;
+    color: #1a1a1a !important;
+}
+.stTextInput input:focus,
+.stTextArea textarea:focus,
+.stNumberInput input:focus {
+    border-color: #1a1a1a !important;
+    box-shadow: 0 0 0 3px rgba(26,26,26,0.08) !important;
+}
+
+/* ── Selectbox ── */
+.stSelectbox > div > div {
+    background: white !important;
+    border: 1.5px solid #e0e0e0 !important;
+    border-radius: 8px !important;
+}
+
+/* ── Expander ── */
+.streamlit-expanderHeader {
+    border-radius: 10px !important;
+    font-weight: 600 !important;
+}
+
+/* ── Buttons ── */
+.stButton > button {
+    border-radius: 8px;
+    font-weight: 600;
+    border: 1.5px solid #e0e0e0;
+    transition: all 0.15s ease;
+}
+.stButton > button:hover {
+    border-color: #1a1a1a;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.stButton > button[kind="primary"] {
+    background: #1a1a1a !important;
+    color: white !important;
+    border-color: #1a1a1a !important;
+}
+
+/* ── Divider ── */
+hr { border-color: #e8e8e8 !important; margin: 1.5rem 0 !important; }
+
+/* ── Metric-Karten ── */
+[data-testid="metric-container"] {
+    background: white;
+    border: 1px solid #e8e8e8;
+    border-radius: 12px;
+    padding: 1rem 1.2rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+
+/* ── Tabs – clean & modern ── */
 .stTabs [data-baseweb="tab-list"] {
     gap: 6px;
     background: white;
