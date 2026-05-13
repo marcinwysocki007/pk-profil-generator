@@ -551,13 +551,14 @@ with st.sidebar:
             st.warning("Bitte einen Namen eingeben.")
 
 # ── Hauptbereich: Profil erstellen ───────────────────────────────
+st.title("Lennarts Generator")
+
 tab1, tab2 = st.tabs(["📋  Pflegeprofil erstellen", "💰  Preiskalkulator"])
 
 # ════════════════════════════════════════════════════════════════
 # TAB 1 – Pflegeprofil
 # ════════════════════════════════════════════════════════════════
 with tab1:
-    st.title("Pflegeprofil Generator")
     st.caption("Foto + Portal-Screenshots hochladen — PDF wird automatisch erstellt")
 
     companies = load_companies()
