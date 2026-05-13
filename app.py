@@ -476,37 +476,52 @@ hr { border-color: #e8e8e8 !important; margin: 1.5rem 0 !important; }
     box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
 
-/* ── Tabs – clean & modern ── */
+/* ── Tabs – subtil ── */
 .stTabs [data-baseweb="tab-list"] {
-    gap: 6px;
-    background: white;
-    padding: 6px;
-    border-radius: 14px;
-    border: 1px solid #e8e8e8;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    margin-bottom: 2rem;
+    gap: 2px;
+    background: transparent;
+    padding: 0;
+    border-bottom: 1px solid #e0e0e0;
+    margin-bottom: 1.8rem;
 }
 .stTabs [data-baseweb="tab"] {
-    height: 46px;
-    padding: 0 32px;
-    font-size: 1rem;
-    font-weight: 600;
-    border-radius: 10px;
-    color: #888;
+    height: 38px;
+    padding: 0 20px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    border-radius: 0;
+    color: #999;
     background: transparent;
-    letter-spacing: 0.01em;
 }
 .stTabs [aria-selected="true"] {
-    background: #1a1a1a !important;
-    color: white !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    background: transparent !important;
+    color: #1a1a1a !important;
+    border-bottom: 2px solid #1a1a1a !important;
+    font-weight: 700 !important;
 }
 .stTabs [data-baseweb="tab"]:hover:not([aria-selected="true"]) {
-    background: #f5f5f5 !important;
-    color: #444 !important;
+    color: #555 !important;
+    background: transparent !important;
 }
 .stTabs [data-baseweb="tab-highlight"] { display: none; }
 .stTabs [data-baseweb="tab-border"] { display: none; }
+
+/* ── Primary Action Buttons – sehr prominent ── */
+.stButton > button[kind="primary"] {
+    background: #1a1a1a !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 10px !important;
+    padding: 0.6rem 1.5rem !important;
+    font-size: 1.05rem !important;
+    font-weight: 700 !important;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.18) !important;
+    transition: all 0.15s ease !important;
+}
+.stButton > button[kind="primary"]:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.24) !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -773,11 +788,11 @@ with tab2:
     col_pv1, col_pv2 = st.columns([2, 1])
     with col_pv1:
         provision_input = st.number_input("Partnerprovision (€)", min_value=0.0,
-                                          value=0.0, step=1.0, format="%.2f",
+                                          value=10.0, step=1.0, format="%.2f",
                                           key="calc_provision")
     with col_pv2:
         provision_unit = st.radio("pro", ["Monat", "Tag"], horizontal=True,
-                                  key="calc_provision_unit")
+                                  index=1, key="calc_provision_unit")
 
     provision_eur = provision_input if provision_unit == "Monat" else provision_input * 30
     gesamt        = total + provision_eur
