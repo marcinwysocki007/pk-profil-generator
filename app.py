@@ -327,7 +327,8 @@ def make_pdf(daten: dict) -> tuple[str, bytes]:
 BASE_PRICE = 2150
 
 PRICE_CONFIG = OrderedDict([
-    ("Betreuung für",               OrderedDict([("1 Person", 0), ("Ehepaar", 300)])),
+    ("Betreuung für",               OrderedDict([("1 Patient", 0), ("2 Patienten", 300)])),
+    ("Weitere Personen im Haushalt", OrderedDict([("Nein", 0), ("Ja", 200)])),
     ("Deutschkenntnisse",           OrderedDict([("Grundlegend", 0), ("Kommunikativ", 300), ("Sehr gut", 600)])),
     ("Erfahrung",                   OrderedDict([("Einsteiger", 0), ("Erfahren", 0), ("Sehr erfahren", 150)])),
     ("Führerschein",                OrderedDict([("Egal", 0), ("Ja", 100), ("Nein", 0)])),
@@ -343,15 +344,21 @@ PRICE_CONFIG = OrderedDict([
         ("Kein Pflegegrad", 0), ("Pflegegrad 1", 0), ("Pflegegrad 2", 0),
         ("Pflegegrad 3", 0), ("Pflegegrad 4", 0), ("Pflegegrad 5", 50),
     ])),
-    ("Weitere Personen im Haushalt", OrderedDict([("Nein", 0), ("Ja", 200)])),
 ])
 
 PRICE_PROMPT = """\
 Analysiere die Patienteninformationen und ordne sie den Preiskategorien zu.
 Wähle immer exakt eine der aufgeführten Optionen – kein Freitext.
 
+Wichtige Unterscheidung bei "Betreuung für":
+- "2 Patienten": NUR wenn beide Personen aktiv gepflegt/betreut werden müssen
+- "1 Patient": wenn eine Person der Patient ist und der Partner/Mitbewohner
+  selbstständig ist, mithilft oder einfach im Haushalt lebt → dann
+  "Weitere Personen im Haushalt" = "Ja"
+
 Kategorien und gültige Optionen:
-- Betreuung für: "1 Person" | "Ehepaar"
+- Betreuung für: "1 Patient" | "2 Patienten"
+- Weitere Personen im Haushalt: "Nein" | "Ja"
 - Deutschkenntnisse: "Grundlegend" | "Kommunikativ" | "Sehr gut"
 - Erfahrung: "Einsteiger" | "Erfahren" | "Sehr erfahren"
 - Führerschein: "Egal" | "Ja" | "Nein"
@@ -359,20 +366,19 @@ Kategorien und gültige Optionen:
 - Mobilität: "Mobil – geht selbstständig" | "Eingeschränkt – nur mit Rollator" | "Auf Rollstuhl angewiesen" | "Bettlägerig"
 - Nachteinsätze: "Nein" | "Gelegentlich" | "Täglich (1×)" | "Mehrmals nachts"
 - Pflegegrad: "Kein Pflegegrad" | "Pflegegrad 1" | "Pflegegrad 2" | "Pflegegrad 3" | "Pflegegrad 4" | "Pflegegrad 5"
-- Weitere Personen im Haushalt: "Nein" | "Ja"
 
 Wenn eine Info fehlt oder unklar ist → günstigste/neutralste Option.
 Antworte NUR mit dem JSON-Objekt:
 {
   "Betreuung für": "...",
+  "Weitere Personen im Haushalt": "...",
   "Deutschkenntnisse": "...",
   "Erfahrung": "...",
   "Führerschein": "...",
   "Geschlecht": "...",
   "Mobilität": "...",
   "Nachteinsätze": "...",
-  "Pflegegrad": "...",
-  "Weitere Personen im Haushalt": "..."
+  "Pflegegrad": "..."
 }"""
 
 
