@@ -413,26 +413,34 @@ st.markdown("""
 .block-container { max-width: 800px; padding-top: 1.5rem; }
 .stButton > button { border-radius: 8px; }
 
-/* Tabs größer und prominenter */
+/* Tabs – clean & modern */
 .stTabs [data-baseweb="tab-list"] {
-    gap: 4px;
-    background: #f0e8e0;
+    gap: 6px;
+    background: white;
     padding: 6px;
-    border-radius: 12px;
-    margin-bottom: 1.5rem;
+    border-radius: 14px;
+    border: 1px solid #e8e8e8;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    margin-bottom: 2rem;
 }
 .stTabs [data-baseweb="tab"] {
-    height: 48px;
-    padding: 0 28px;
-    font-size: 1.05rem;
+    height: 46px;
+    padding: 0 32px;
+    font-size: 1rem;
     font-weight: 600;
-    border-radius: 8px;
-    color: #555;
+    border-radius: 10px;
+    color: #888;
+    background: transparent;
+    letter-spacing: 0.01em;
 }
 .stTabs [aria-selected="true"] {
-    background: white !important;
-    color: #1e1e1e !important;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+    background: #1a1a1a !important;
+    color: white !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+}
+.stTabs [data-baseweb="tab"]:hover:not([aria-selected="true"]) {
+    background: #f5f5f5 !important;
+    color: #444 !important;
 }
 .stTabs [data-baseweb="tab-highlight"] { display: none; }
 .stTabs [data-baseweb="tab-border"] { display: none; }
