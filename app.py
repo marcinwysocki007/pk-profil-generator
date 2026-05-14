@@ -98,8 +98,8 @@ def save_companies(data: dict):
     save_companies_to_github(data)
 
 
-def push_to_github(filename: str, data):
-    """Schreibt eine JSON-Datei via GitHub API ins Repo (nur wenn Token vorhanden)."""
+def push_to_github(filename: str, data, binary: bool = False):
+    """Schreibt eine Datei via GitHub API ins Repo."""
     import urllib.request
     import urllib.error
 
@@ -125,9 +125,12 @@ def push_to_github(filename: str, data):
         if e.code != 404:
             return
 
-    content_b64 = base64.b64encode(
-        json.dumps(data, indent=2, ensure_ascii=False).encode()
-    ).decode()
+    if binary:
+        content_b64 = base64.b64encode(data).decode()
+    else:
+        content_b64 = base64.b64encode(
+            json.dumps(data, indent=2, ensure_ascii=False).encode()
+        ).decode()
 
     body_dict = {"message": f"Update {filename}", "content": content_b64}
     if sha:
@@ -140,6 +143,41 @@ def push_to_github(filename: str, data):
         urllib.request.urlopen(req)
     except Exception:
         pass
+
+
+def list_github_profiles() -> list:
+    """Gibt Liste von (name, sha) aller PDFs aus generated_profiles/ auf GitHub zurück."""
+    import urllib.request, urllib.error
+    token = st.secrets.get("GITHUB_TOKEN", "") or os.environ.get("GITHUB_TOKEN", "")
+    repo  = st.secrets.get("GITHUB_REPO", "") or os.environ.get("GITHUB_REPO", "")
+    if not token or not repo:
+        return []
+    url = f"https://api.github.com/repos/{repo}/contents/generated_profiles"
+    headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json",
+                "User-Agent": "PK-Profil-App"}
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req) as resp:
+            files = json.loads(resp.read())
+        return sorted(
+            [(f["name"], f["sha"]) for f in files if f["name"].endswith(".pdf")],
+            reverse=True
+        )
+    except Exception:
+        return []
+
+
+def fetch_github_pdf(sha: str) -> bytes:
+    """Lädt PDF-Bytes via GitHub Blob SHA."""
+    import urllib.request
+    token = st.secrets.get("GITHUB_TOKEN", "") or os.environ.get("GITHUB_TOKEN", "")
+    repo  = st.secrets.get("GITHUB_REPO", "") or os.environ.get("GITHUB_REPO", "")
+    url = f"https://api.github.com/repos/{repo}/git/blobs/{sha}"
+    headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json",
+                "User-Agent": "PK-Profil-App"}
+    req = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(req) as resp:
+        return base64.b64decode(json.loads(resp.read())["content"])
 
 
 def save_companies_to_github(data: dict):
@@ -699,6 +737,7 @@ with tab1:
                     st.write("PDF wird generiert…")
                     filename, pdf_bytes = make_pdf(daten)
                     os.unlink(tmp.name)
+                    push_to_github(f"generated_profiles/{filename}", pdf_bytes, binary=True)
 
                     status.update(label="Fertig!", state="complete")
                     st.success(f"Profil für **{name}** ({selected_name}) erstellt")
@@ -715,9 +754,10 @@ with tab1:
 
     st.divider()
     st.subheader("Gespeicherte Profile")
-    pdf_files = sorted(STORAGE_DIR.glob("*.pdf"), key=os.path.getmtime, reverse=True)
-    if pdf_files:
-        for pdf_path in pdf_files[:30]:
+    local_pdfs = sorted(STORAGE_DIR.glob("*.pdf"), key=os.path.getmtime, reverse=True)
+
+    if local_pdfs:
+        for pdf_path in local_pdfs[:30]:
             mtime = datetime.fromtimestamp(os.path.getmtime(pdf_path))
             col_a, col_b = st.columns([4, 1])
             with col_a:
@@ -727,7 +767,22 @@ with tab1:
                     st.download_button("↓", data=f.read(), file_name=pdf_path.name,
                                        mime="application/pdf", key=str(pdf_path))
     else:
-        st.info("Noch keine Profile erstellt.")
+        # Lokal leer → aus GitHub laden
+        gh_profiles = list_github_profiles()
+        if gh_profiles:
+            for name_gh, sha in gh_profiles[:30]:
+                col_a, col_b = st.columns([4, 1])
+                with col_a:
+                    st.write(f"📄 {Path(name_gh).stem}")
+                with col_b:
+                    if st.button("↓", key=f"gh_{sha}"):
+                        with st.spinner("Lade…"):
+                            pdf_data = fetch_github_pdf(sha)
+                        st.download_button("Speichern", data=pdf_data,
+                                           file_name=name_gh, mime="application/pdf",
+                                           key=f"dl_{sha}")
+        else:
+            st.info("Noch keine Profile erstellt.")
 
 
 # ════════════════════════════════════════════════════════════════
