@@ -145,6 +145,7 @@ def push_to_github(filename: str, data, binary: bool = False):
         pass
 
 
+@st.cache_data(ttl=300)
 def list_github_profiles() -> list:
     """Gibt Liste von (name, sha) aller PDFs aus generated_profiles/ auf GitHub zurück."""
     import urllib.request, urllib.error
@@ -154,10 +155,10 @@ def list_github_profiles() -> list:
         return []
     url = f"https://api.github.com/repos/{repo}/contents/generated_profiles"
     headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json",
-                "User-Agent": "PK-Profil-App"}
+               "User-Agent": "PK-Profil-App"}
     try:
         req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req) as resp:
+        with urllib.request.urlopen(req, timeout=8) as resp:
             files = json.loads(resp.read())
         return sorted(
             [(f["name"], f["sha"]) for f in files if f["name"].endswith(".pdf")],
@@ -174,10 +175,13 @@ def fetch_github_pdf(sha: str) -> bytes:
     repo  = st.secrets.get("GITHUB_REPO", "") or os.environ.get("GITHUB_REPO", "")
     url = f"https://api.github.com/repos/{repo}/git/blobs/{sha}"
     headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json",
-                "User-Agent": "PK-Profil-App"}
-    req = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(req) as resp:
-        return base64.b64decode(json.loads(resp.read())["content"])
+               "User-Agent": "PK-Profil-App"}
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return base64.b64decode(json.loads(resp.read())["content"])
+    except Exception:
+        return b""
 
 
 def save_companies_to_github(data: dict):
@@ -767,22 +771,31 @@ with tab1:
                     st.download_button("↓", data=f.read(), file_name=pdf_path.name,
                                        mime="application/pdf", key=str(pdf_path))
     else:
-        # Lokal leer → aus GitHub laden
-        gh_profiles = list_github_profiles()
-        if gh_profiles:
-            for name_gh, sha in gh_profiles[:30]:
-                col_a, col_b = st.columns([4, 1])
-                with col_a:
-                    st.write(f"📄 {Path(name_gh).stem}")
-                with col_b:
-                    if st.button("↓", key=f"gh_{sha}"):
-                        with st.spinner("Lade…"):
-                            pdf_data = fetch_github_pdf(sha)
-                        st.download_button("Speichern", data=pdf_data,
-                                           file_name=name_gh, mime="application/pdf",
-                                           key=f"dl_{sha}")
-        else:
-            st.info("Noch keine Profile erstellt.")
+        col_info, col_load = st.columns([3, 1])
+        with col_info:
+            st.info("Keine lokalen Profile – aus GitHub laden?")
+        with col_load:
+            if st.button("🔄 Laden", key="load_gh_profiles"):
+                st.session_state["gh_profiles_loaded"] = True
+
+        if st.session_state.get("gh_profiles_loaded"):
+            with st.spinner("Profile werden geladen…"):
+                gh_profiles = list_github_profiles()
+            if gh_profiles:
+                for name_gh, sha in gh_profiles[:30]:
+                    col_a, col_b = st.columns([4, 1])
+                    with col_a:
+                        st.write(f"📄 {Path(name_gh).stem}")
+                    with col_b:
+                        if st.button("↓", key=f"gh_{sha}"):
+                            with st.spinner("Lade…"):
+                                pdf_data = fetch_github_pdf(sha)
+                            if pdf_data:
+                                st.download_button("Speichern", data=pdf_data,
+                                                   file_name=name_gh, mime="application/pdf",
+                                                   key=f"dl_{sha}")
+            else:
+                st.info("Noch keine Profile in GitHub.")
 
 
 # ════════════════════════════════════════════════════════════════
