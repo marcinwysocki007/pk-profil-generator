@@ -245,9 +245,9 @@ def slug(name: str) -> str:
 
 # ── Sprachtext ───────────────────────────────────────────────────
 DEUTSCH_TEXTS = {
-    0: "Die Betreuungsperson versteht einfache Anweisungen und kann grundlegende Bedürfnisse auf Deutsch ausdrücken. Für komplexere Gespräche ist etwas Geduld gefragt.",
-    1: "Die Betreuungsperson kann sich im Alltag gut auf Deutsch verständigen und einfache Gespräche führen. Die Kommunikation im Pflegealltag klappt zuverlässig.",
-    2: "Die Betreuungsperson kommuniziert fließend auf Deutsch und verständigt sich auch in anspruchsvolleren Situationen sicher. Ein leichter Akzent ist möglich, beeinträchtigt die Kommunikation jedoch nicht.",
+    0: "Die Betreuungsperson kennt einige wenige deutsche Wörter und kann sich kaum verbal verständigen. Kommunikation gelingt vor allem über Gesten und einfache Zeichen.",
+    1: "Die Betreuungsperson spricht einfache Sätze auf Deutsch und kann grundlegende Dinge ausdrücken. Für längere Gespräche ist Geduld auf beiden Seiten hilfreich.",
+    2: "Die Betreuungsperson verständigt sich in alltäglichen Situationen gut auf Deutsch. Einfache Gespräche im Pflegealltag gelingen zuverlässig.",
 }
 
 # ── Claude ───────────────────────────────────────────────────────
