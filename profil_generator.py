@@ -397,7 +397,7 @@ def page1(c, d):
     draw_flag_de(c, mx + 5*mm, y - 9*mm)
     c.setFillColor(C_DUNKEL)
     c.setFont("Arial-B", 11)
-    c.drawString(mx + 14*mm, y - 7.5*mm, f"Sprachkenntnisse aus {d['name']}")
+    c.drawString(mx + 14*mm, y - 7.5*mm, "Deutschkenntnisse")
 
     draw_language_scale(c, mx + 5*mm, y - 20*mm, kw - 10*mm, d["deutsch_level"])
 
