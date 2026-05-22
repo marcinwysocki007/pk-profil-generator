@@ -368,6 +368,15 @@ def make_pdf(daten: dict) -> tuple[str, bytes]:
 
 BASE_PRICE = 2150
 
+# Beschreibungen für Radio-Labels (nur wo nötig)
+OPTION_DESCRIPTIONS = {
+    "Deutschkenntnisse": {
+        "Grundlegend":  "Grundlegend – wenig Konversation, einfache Sätze (A1/A2)",
+        "Kommunikativ": "Kommunikativ – Alltagsgespräche gut möglich (B1/B2)",
+        "Sehr gut":     "Sehr gut – fließend, auch im Pflegealltag sicher (C1/C2)",
+    },
+}
+
 PRICE_CONFIG = OrderedDict([
     ("Betreuung für",               OrderedDict([("1 Patient", 0), ("2 Patienten", 300)])),
     ("Weitere Personen im Haushalt", OrderedDict([("Nein", 0), ("Ja", 200)])),
@@ -838,13 +847,15 @@ with tab2:
     for cat, options in PRICE_CONFIG.items():
         opt_list = list(options.keys())
 
-        # Label mit Aufpreis-Hinweisen
-        def fmt(o, opts=options):
+        # Label mit Aufpreis-Hinweisen + optionaler Beschreibung
+        descs = OPTION_DESCRIPTIONS.get(cat, {})
+        def fmt(o, opts=options, d=descs):
+            label = d.get(o, o)
             p = opts[o]
-            return f"{o}  (+{p} €)" if p > 0 else o
+            return f"{label}  (+{p} €)" if p > 0 else label
 
         selected = st.radio(cat, opt_list, index=0,
-                            format_func=fmt, horizontal=True,
+                            format_func=fmt, horizontal=False if descs else True,
                             key=f"calc_radio_{cat}")
         surcharge = options[selected]
         if surcharge > 0:
