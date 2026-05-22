@@ -368,12 +368,55 @@ def make_pdf(daten: dict) -> tuple[str, bytes]:
 
 BASE_PRICE = 2150
 
-# Beschreibungen für Radio-Labels (nur wo nötig)
+# Beschreibungen für alle Radio-Labels
 OPTION_DESCRIPTIONS = {
+    "Betreuung für": {
+        "1 Patient":    "1 Patient – eine Person wird betreut",
+        "2 Patienten":  "2 Patienten – beide Personen benötigen aktive Pflege",
+    },
+    "Weitere Personen im Haushalt": {
+        "Nein": "Nein – Pflegekraft wohnt nur mit dem Patienten",
+        "Ja":   "Ja – weitere Familienmitglieder leben im Haushalt",
+    },
     "Deutschkenntnisse": {
-        "Grundlegend":  "Grundlegend – wenig Konversation, einfache Sätze (A1/A2)",
+        "Grundlegend":  "Grundlegend – einfache Sätze, wenig Konversation (A1/A2)",
         "Kommunikativ": "Kommunikativ – Alltagsgespräche gut möglich (B1/B2)",
         "Sehr gut":     "Sehr gut – fließend, auch im Pflegealltag sicher (C1/C2)",
+    },
+    "Erfahrung": {
+        "Einsteiger":     "Einsteiger – erste Pflegeerfahrung, Grundkenntnisse",
+        "Erfahren":       "Erfahren – mehrere Jahre in der 24h-Betreuung",
+        "Sehr erfahren":  "Sehr erfahren – auch komplexe Pflegebilder, Demenz, Palliativ",
+    },
+    "Führerschein": {
+        "Egal": "Egal – kein Führerschein notwendig",
+        "Ja":   "Ja – Führerschein erforderlich (z.B. Arztfahrten, Einkäufe)",
+        "Nein": "Nein – explizit kein Führerschein gewünscht",
+    },
+    "Geschlecht": {
+        "Egal":      "Egal – kein Geschlecht bevorzugt",
+        "Weiblich":  "Weiblich – weibliche Pflegekraft gewünscht",
+        "Männlich":  "Männlich – männliche Pflegekraft gewünscht",
+    },
+    "Mobilität": {
+        "Mobil – geht selbstständig":       "Mobil – geht selbstständig, kaum körperlicher Einsatz",
+        "Eingeschränkt – nur mit Rollator": "Eingeschränkt – Unterstützung beim Gehen nötig",
+        "Auf Rollstuhl angewiesen":         "Rollstuhl – Transfer und Lagerung erforderlich",
+        "Bettlägerig":                      "Bettlägerig – hohe körperliche Belastung, Grundpflege",
+    },
+    "Nachteinsätze": {
+        "Nein":            "Nein – Pflegekraft kann durchschlafen",
+        "Gelegentlich":    "Gelegentlich – selten nachts nötig (1–2×/Woche)",
+        "Täglich (1×)":   "Täglich – einmal pro Nacht aufstehen",
+        "Mehrmals nachts": "Mehrmals – Schlaf stark unterbrochen, hohe Belastung",
+    },
+    "Pflegegrad": {
+        "Kein Pflegegrad": "Kein Pflegegrad – keine anerkannte Pflegebedürftigkeit",
+        "Pflegegrad 1":    "PG 1 – geringe Beeinträchtigung, hauptsächlich Alltagshilfe",
+        "Pflegegrad 2":    "PG 2 – erhebliche Beeinträchtigung, regelmäßige Unterstützung",
+        "Pflegegrad 3":    "PG 3 – schwere Beeinträchtigung, umfangreiche Pflege",
+        "Pflegegrad 4":    "PG 4 – schwerste Beeinträchtigung, intensive Pflege",
+        "Pflegegrad 5":    "PG 5 – schwerste Beeinträchtigung mit besonderen Anforderungen",
     },
 }
 
@@ -855,7 +898,7 @@ with tab2:
             return f"{label}  (+{p} €)" if p > 0 else label
 
         selected = st.radio(cat, opt_list, index=0,
-                            format_func=fmt, horizontal=False if descs else True,
+                            format_func=fmt, horizontal=False,
                             key=f"calc_radio_{cat}")
         surcharge = options[selected]
         if surcharge > 0:
