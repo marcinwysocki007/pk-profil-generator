@@ -25,8 +25,8 @@ DATEN = {
     "geschlecht":  "Weiblich",
     "foto_pfad":   "Mariola-foto.png",
 
-    # Deutschkenntnisse: 0=Keine, 1=Grundkenntnisse, 2=Mittel, 3=Fortgeschritten, 4=Gut
-    "deutsch_level": 2,
+    # Deutschkenntnisse: 0=Grundlegend, 1=Kommunikativ, 2=Sehr gut
+    "deutsch_level": 1,
     "deutsch_text": (
         "Die Betreuungsperson spricht in einfachen Sätzen "
         "und kann sich im Alltag verständigen."
@@ -272,7 +272,7 @@ def draw_footer(c, company_name=None, logo_pfad=None):
 
 
 def draw_language_scale(c, x, y, w, level):
-    labels = ["Keine", "Grund", "Mittel", "Fortgeschritten", "Gut"]
+    labels = ["Grundlegend", "Kommunikativ", "Sehr gut"]
     n   = len(labels) - 1
     gap = (w - 10*mm) / n
     sx  = x + 5*mm

@@ -245,11 +245,9 @@ def slug(name: str) -> str:
 
 # ── Sprachtext ───────────────────────────────────────────────────
 DEUTSCH_TEXTS = {
-    0: "Die Betreuungsperson spricht kein Deutsch.",
-    1: "Die Betreuungsperson hat Grundkenntnisse und versteht einfache Sätze.",
-    2: "Die Betreuungsperson spricht in einfachen Sätzen und kann sich im Alltag verständigen.",
-    3: "Die Betreuungsperson spricht fortgeschrittenes Deutsch und verständigt sich gut.",
-    4: "Die Betreuungsperson spricht sehr gut Deutsch und kommuniziert fließend.",
+    0: "Die Betreuungsperson versteht einfache Anweisungen und kann grundlegende Bedürfnisse auf Deutsch ausdrücken. Für komplexere Gespräche ist etwas Geduld gefragt.",
+    1: "Die Betreuungsperson kann sich im Alltag gut auf Deutsch verständigen und einfache Gespräche führen. Die Kommunikation im Pflegealltag klappt zuverlässig.",
+    2: "Die Betreuungsperson kommuniziert fließend auf Deutsch und verständigt sich auch in anspruchsvolleren Situationen sicher. Ein leichter Akzent ist möglich, beeinträchtigt die Kommunikation jedoch nicht.",
 }
 
 # ── Claude ───────────────────────────────────────────────────────
@@ -262,7 +260,7 @@ Regeln:
 - verfuegbarkeit: Format "ab DD.MM.YY" (z.B. "ab 14.05.26")
 - alter: Format "XX (Jg. YYYY)" – oder "" wenn unbekannt
 - groesse_gewicht: Format "XXX–XXX cm, XX–XX kg"
-- deutsch_level: 0=Keine, 1=Grundkenntnisse, 2=Mittelstufe, 3=Fortgeschritten, 4=Gut
+- deutsch_level: 0=Grundlegend, 1=Kommunikativ, 2=Sehr gut
 - mobilitaet: z.B. "Vollständig mobil, Rollstuhlfähig, Bettlägerig"
 - Persönlichkeit + Hobbys: ins Deutsche übersetzen
 - beschreibung: PFLICHTFELD – verfasse selbst 3–4 professionelle Sätze auf Deutsch, die die Pflegekraft vorstellen. Nutze dafür Erfahrung, Persönlichkeit, Sprachkenntnisse, Nationalität und besondere Fähigkeiten. Nur Vorname verwenden. Niemals leer lassen.
