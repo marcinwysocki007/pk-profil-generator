@@ -391,7 +391,10 @@ def page1(c, d):
     y -= bh + 6*mm
 
     # ── 2. Sprachkenntnisse ──────────────────────────────────────
-    sh = 40*mm
+    txt_w    = kw - 10*mm
+    txt_font, txt_size, txt_lead = "Arial", 9.5, 5*mm
+    dt_lines = wrap(c, d["deutsch_text"], txt_font, txt_size, txt_w)
+    sh = 28*mm + len(dt_lines) * txt_lead + 4*mm
     card(c, mx, y - sh, kw, sh)
 
     draw_flag_de(c, mx + 5*mm, y - 9*mm)
@@ -402,8 +405,11 @@ def page1(c, d):
     draw_language_scale(c, mx + 5*mm, y - 20*mm, kw - 10*mm, d["deutsch_level"])
 
     c.setFillColor(C_GRAU)
-    c.setFont("Arial", 9.5)
-    c.drawString(mx + 5*mm, y - sh + 5*mm, d["deutsch_text"])
+    c.setFont(txt_font, txt_size)
+    ty = y - 26*mm
+    for line in dt_lines:
+        c.drawString(mx + 5*mm, ty, line)
+        ty -= txt_lead
     y -= sh + 6*mm
 
     # ── 3. Wichtigste Profildetails ──────────────────────────────
