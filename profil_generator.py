@@ -140,6 +140,18 @@ def wrap(c, text, font, size, max_w):
     return lines
 
 
+def wrap_trunc(c, text, font, size, max_w, max_lines=5):
+    """Wie wrap(), aber nach max_lines Zeilen mit '...' abschneiden."""
+    lines = wrap(c, text, font, size, max_w)
+    if len(lines) > max_lines:
+        lines = lines[:max_lines]
+        last = lines[-1]
+        while last and c.stringWidth(last + " ...", font, size) > max_w:
+            last = last.rsplit(" ", 1)[0] if " " in last else last[:-1]
+        lines[-1] = last + " ..."
+    return lines
+
+
 def draw_text(c, x, y, text, font, size, color, max_w, leading):
     """Mehrzeiliger Text – gibt neue y-Position zurück."""
     c.setFont(font, size)
@@ -558,7 +570,7 @@ def page2(c, d):
         # Dynamische Zeilenhöhen – passt sich an langen Texten an
         row_heights = []
         for label, value, lila_v in extra_rows:
-            vlines = wrap(c, str(value), "Arial-B", 9.5, val_w)
+            vlines = wrap_trunc(c, str(value), "Arial-B", 9.5, val_w)
             rh = max(row_h, len(vlines) * 4.5*mm + 4*mm)
             row_heights.append(rh)
 
@@ -582,7 +594,7 @@ def page2(c, d):
             c.drawString(mx + 8*mm, center_y - 1.5*mm, label)
             c.setFillColor(C_LILA if lila_v else C_DUNKEL)
             c.setFont("Arial-B", 9.5)
-            vlines = wrap(c, str(value), "Arial-B", 9.5, val_w)
+            vlines = wrap_trunc(c, str(value), "Arial-B", 9.5, val_w)
             n_v    = len(vlines)
             vy     = center_y + (n_v - 1) * 2.25*mm - 1.5*mm
             for vl in vlines:
