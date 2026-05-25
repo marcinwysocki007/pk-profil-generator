@@ -57,12 +57,12 @@ DATEN = {
     "patienten_anzahl":      "1",
     "geschlecht_akzeptiert": "Alle",
     "mobilitaet":            "Vollständig mobil, Rollstuhlfähig",
-    "heben_lagern":          "Unwichtig",
-    "demenz":                "Unwichtig",
-    "nachteinsaetze":        "Unwichtig",
+    "heben_lagern":          "Nicht relevant",
+    "demenz":                "Nicht relevant",
+    "nachteinsaetze":        "Nicht relevant",
     "andere_haushalt":       "Nein",
-    "familie_naehe":         "Unwichtig",
-    "tiere":                 "Unwichtig",
+    "familie_naehe":         "Nicht relevant",
+    "tiere":                 "Nicht relevant",
     "urbanisierung":         "Stadt, Großstadt, Dorf",
     "unterbringung":         "",
     "praeferierte_gegend":   "",
@@ -440,8 +440,8 @@ def page1(c, d):
         ("Größe und Gewicht",              d["groesse_gewicht"], False),
         ("Führerschein",                   d["fuehrerschein"],   False),
         ("Raucher",                        d["raucher"],         False),
-        ("Pflegeberuf gelernt?",           d["pflegeberuf"],     False),
-        ("Erfahrung in der Krankenpflege", d["erfahrung"],       False),
+        ("Pflegeberuf",                    d["pflegeberuf"],     False),
+        ("Pflegeerfahrung",               d["erfahrung"],       False),
     ]
     hdr1 = 24*mm
     rows1 = [(l, v, vt) for l, v, vt in rows1
@@ -489,24 +489,15 @@ def page2(c, d):
     # ── Anforderungen ────────────────────────────────────────────
     row_h = 12*mm
     rows2 = [
-        ("Wie viele Patienten möchte sie betreuen?",
-         d["patienten_anzahl"],        False),
-        ("Welches Geschlecht akzeptiert sie?",
-         d["geschlecht_akzeptiert"],   True),
-        ("Welche Mobilität kann sie aufrechterhalten?",
-         d["mobilitaet"],              True),
-        ("Kann sie heben und lagern?",
-         d["heben_lagern"],            False),
-        ("Ist dementielles Verhalten in Ordnung?",
-         d["demenz"],                  False),
-        ("Sind Nachteinsätze in Ordnung?",
-         d["nachteinsaetze"],          False),
-        ("Sind andere Personen im Haushalt in Ordnung?",
-         d["andere_haushalt"],         False),
-        ("Ist es in Ordnung, wenn die Familie in der Nähe wohnt?",
-         d["familie_naehe"],           False),
-        ("Tiere im Haushalt",
-         d.get("tiere", ""),           False),
+        ("Anzahl Patienten",           d["patienten_anzahl"],        False),
+        ("Geschlecht Patient",         d["geschlecht_akzeptiert"],   True),
+        ("Mobilität",                  d["mobilitaet"],              True),
+        ("Heben & Lagern",             d["heben_lagern"],            False),
+        ("Demenz akzeptiert",          d["demenz"],                  False),
+        ("Nachteinsätze",              d["nachteinsaetze"],          False),
+        ("Weitere Personen im Haus",   d["andere_haushalt"],         False),
+        ("Familie in der Nähe",        d["familie_naehe"],           False),
+        ("Tiere im Haushalt",          d.get("tiere", ""),           False),
     ]
     # Optionale Felder nur wenn befüllt
     if val_ok(d.get("urbanisierung")):

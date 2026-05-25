@@ -265,6 +265,7 @@ Regeln:
 - Persönlichkeit + Hobbys: ins Deutsche übersetzen
 - beschreibung: PFLICHTFELD – verfasse selbst 3–4 professionelle Sätze auf Deutsch, die die Pflegekraft vorstellen. Nutze dafür Erfahrung, Persönlichkeit, Sprachkenntnisse, Nationalität und besondere Fähigkeiten. Nur Vorname verwenden. Niemals leer lassen.
 - besondere_merkmale: akzeptierte Erkrankungen / besondere Fähigkeiten zusammenfassen
+- heben_lagern, demenz, nachteinsaetze, andere_haushalt, familie_naehe, tiere: Verwende exakt "Ja", "Nein" oder "Nicht relevant" (nicht "Unwichtig", nicht "kein Problem" o.ä.)
 - NIEMALS aufnehmen: Nachname, Telefonnummer, E-Mail, Adresse, Gehalt, Kontonummer
 
 Antworte NUR mit dem JSON-Objekt:
@@ -455,7 +456,7 @@ def extract_price_fields(text: str, image_files: list, client) -> dict:
 
 # ── Streamlit Layout ─────────────────────────────────────────────
 
-st.set_page_config(page_title="Pflegeprofil Generator", page_icon="📋", layout="centered")
+st.set_page_config(page_title="Lennarts Generator", page_icon="📋", layout="centered")
 
 st.markdown("""
 <style>
