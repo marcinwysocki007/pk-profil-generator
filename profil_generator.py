@@ -406,7 +406,8 @@ def page1(c, d):
     txt_w    = kw - 10*mm
     txt_font, txt_size, txt_lead = "Arial", 9.5, 5*mm
     dt_lines = wrap(c, d["deutsch_text"], txt_font, txt_size, txt_w)
-    sh = 28*mm + len(dt_lines) * txt_lead + 4*mm
+    # Skala-Beschriftungen enden bei ca. y-32mm → Text erst ab y-36mm
+    sh = 40*mm + len(dt_lines) * txt_lead + 4*mm
     card(c, mx, y - sh, kw, sh)
 
     draw_flag_de(c, mx + 5*mm, y - 9*mm)
@@ -416,9 +417,14 @@ def page1(c, d):
 
     draw_language_scale(c, mx + 5*mm, y - 20*mm, kw - 10*mm, d["deutsch_level"])
 
+    # Trennlinie zwischen Skala und Beschreibungstext
+    c.setStrokeColor(C_TRENN)
+    c.setLineWidth(0.3)
+    c.line(mx + 4*mm, y - 34*mm, mx + kw - 4*mm, y - 34*mm)
+
     c.setFillColor(C_GRAU)
     c.setFont(txt_font, txt_size)
-    ty = y - 26*mm
+    ty = y - 37*mm
     for line in dt_lines:
         c.drawString(mx + 5*mm, ty, line)
         ty -= txt_lead
