@@ -284,7 +284,7 @@ def draw_footer(c, company_name=None, logo_pfad=None):
 
 
 def draw_language_scale(c, x, y, w, level):
-    labels = ["Grundlegend", "Kommunikativ", "Gut"]
+    labels = ["Keine", "Grundlegend", "Kommunikativ", "Gut", "Sehr gut"]
     n   = len(labels) - 1
     gap = (w - 10*mm) / n
     sx  = x + 5*mm

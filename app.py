@@ -245,9 +245,11 @@ def slug(name: str) -> str:
 
 # ── Sprachtext ───────────────────────────────────────────────────
 DEUTSCH_TEXTS = {
-    0: "Die Betreuungsperson kennt einige wenige deutsche Wörter, kann sich jedoch kaum verbal verständigen. Die Kommunikation gelingt vor allem über Gesten, einfache Zeichen und Körpersprache. Für den Pflegealltag empfehlen wir Übersetzungs-Apps als ergänzende Hilfe.",
-    1: "Die Betreuungsperson spricht einfache Sätze auf Deutsch und kann grundlegende Bedürfnisse und Anweisungen verstehen. Kurze Alltagsgespräche sind möglich, für komplexere Themen ist auf beiden Seiten etwas Geduld gefragt. Die Sprachkenntnisse reichen für den grundlegenden Pflegealltag aus.",
-    2: "Die Betreuungsperson verständigt sich in den meisten alltäglichen Situationen sicher auf Deutsch. Gespräche über Tagesabläufe, Wohlbefinden und einfache Anweisungen gelingen zuverlässig. Ein leichter Akzent ist möglich, beeinträchtigt die Verständigung im Pflegealltag jedoch nicht.",
+    0: "Die Betreuungsperson verfügt über keine Deutschkenntnisse und kann sich verbal nicht verständigen. Kommunikation erfolgt ausschließlich über Gesten, Körpersprache oder digitale Übersetzungshilfen. Wir empfehlen, eine Übersetzungs-App von Beginn an fest in den Alltag einzuplanen.",
+    1: "Die Betreuungsperson kennt einzelne deutsche Wörter und einfache Redewendungen, versteht jedoch nur wenig zusammenhängende Sprache. Die Verständigung gelingt vor allem über Gesten und einfache Zeichen – längere Gespräche sind kaum möglich. Ergänzende Übersetzungs-Apps erleichtern den Alltag deutlich.",
+    2: "Die Betreuungsperson spricht einfache Sätze auf Deutsch und versteht grundlegende Bedürfnisse und Anweisungen. Kurze Alltagsgespräche sind möglich; für komplexere Themen ist auf beiden Seiten etwas Geduld gefragt. Die Sprachkenntnisse reichen für den grundlegenden Pflegealltag gut aus.",
+    3: "Die Betreuungsperson verständigt sich in den meisten alltäglichen Situationen sicher auf Deutsch. Gespräche über Tagesabläufe, Wohlbefinden und Pflegeroutinen gelingen zuverlässig und ohne größere Missverständnisse. Ein leichter Akzent ist möglich, beeinträchtigt die Verständigung im Pflegealltag jedoch nicht.",
+    4: "Die Betreuungsperson spricht fließend Deutsch und kommuniziert auch in anspruchsvollen Situationen souverän. Gespräche mit Ärzten, Angehörigen oder Behörden sind problemlos möglich. Ein leichter Akzent kann vorhanden sein, stört die Verständigung dabei zu keiner Zeit.",
 }
 
 # ── Claude ───────────────────────────────────────────────────────
@@ -260,7 +262,7 @@ Regeln:
 - verfuegbarkeit: Format "ab DD.MM.YY" (z.B. "ab 14.05.26")
 - alter: Format "XX (Jg. YYYY)" – oder "" wenn unbekannt
 - groesse_gewicht: Format "XXX–XXX cm, XX–XX kg"
-- deutsch_level: 0=Grundlegend, 1=Kommunikativ, 2=Sehr gut
+- deutsch_level: 0=Keine, 1=Grundlegend, 2=Kommunikativ, 3=Gut, 4=Sehr gut
 - mobilitaet: z.B. "Vollständig mobil, Rollstuhlfähig, Bettlägerig"
 - Persönlichkeit + Hobbys: ins Deutsche übersetzen
 - beschreibung: PFLICHTFELD – verfasse selbst 3–4 professionelle Sätze auf Deutsch, die die Pflegekraft vorstellen. Nutze dafür Erfahrung, Persönlichkeit, Sprachkenntnisse, Nationalität und besondere Fähigkeiten. Nur Vorname verwenden. Niemals leer lassen.
