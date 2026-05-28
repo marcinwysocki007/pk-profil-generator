@@ -28,8 +28,11 @@ DATEN = {
     # Deutschkenntnisse: 0=Grundlegend, 1=Kommunikativ, 2=Sehr gut
     "deutsch_level": 1,
     "deutsch_text": (
-        "Die Betreuungsperson spricht in einfachen Sätzen "
-        "und kann sich im Alltag verständigen."
+        "Die Betreuungsperson kennt einzelne deutsche Wörter und einfache Redewendungen, "
+        "versteht jedoch nur wenig zusammenhängende Sprache. "
+        "Die Verständigung gelingt vor allem über Gesten und einfache Zeichen – "
+        "längere Gespräche sind kaum möglich. "
+        "Ergänzende Übersetzungs-Apps erleichtern den Alltag deutlich."
     ),
 
     # Profildetails Seite 1
@@ -297,22 +300,19 @@ def draw_language_scale(c, x, y, w, level):
     for i in range(n + 1):
         px = sx + i * gap
         if i == level:
-            # Aktiver Punkt
+            # Aktiver Punkt – ausgefüllt, Label fett
             c.setFillColor(C_LILA)
             c.circle(px, y, 5*mm, fill=1, stroke=0)
-            c.setFillColor(C_WEISS)
-            c.setFont("Arial-B", 9)
-            c.drawCentredString(px, y - 3, str(i))
             c.setFillColor(C_LILA)
             c.setFont("Arial-B", 9)
             c.drawCentredString(px, y - 8*mm, labels[i])
         else:
+            # Inaktiver Punkt – nur kleiner Kreis + Label
             c.setFillColor(C_TRENN)
             c.circle(px, y, 1.5*mm, fill=1, stroke=0)
             c.setFillColor(C_GRAU)
             c.setFont("Arial", 8)
-            c.drawCentredString(px, y - 5*mm, str(i))
-            c.drawCentredString(px, y - 9*mm, labels[i])
+            c.drawCentredString(px, y - 6*mm, labels[i])
 
 
 def draw_badge(c, right_x, row_y, text, row_h=9*mm):
