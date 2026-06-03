@@ -75,6 +75,11 @@ DATEN = {
     "persoenlichkeit":    "Hilfsbereit, offen, geduldig, einfühlsam",
     "besondere_merkmale": "Erfahrung mit Demenz (frühes bis fortgeschrittenes Stadium)",
     "andere_sprachen":    "Polnisch (Muttersprache)",
+
+    # Firmen-Branding (wie in der App) – für realistischen Footer-/Farbtest
+    "company_name":  "vitanas",
+    "logo_pfad":     "test_assets/vitanas_logo.png",
+    "color_primary": "#dd978e",
 }
 # ================================================================
 
