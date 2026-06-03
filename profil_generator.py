@@ -555,7 +555,11 @@ def page2(c, d):
     if val_ok(d.get("hobbys")):
         extra_rows.append(("Hobbys",               d["hobbys"],             False))
     if val_ok(d.get("besondere_merkmale")):
-        extra_rows.append(("Besondere Merkmale",   d["besondere_merkmale"], False))
+        bm = str(d["besondere_merkmale"])
+        MAX_BM = 180
+        if len(bm) > MAX_BM:
+            bm = bm[:MAX_BM].rsplit(" ", 1)[0].rstrip(",") + " ..."
+        extra_rows.append(("Besondere Merkmale", bm, False))
     if val_ok(d.get("andere_sprachen")):
         extra_rows.append(("Weitere Sprachen",     d["andere_sprachen"],    True))
 
