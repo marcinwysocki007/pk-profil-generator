@@ -443,7 +443,7 @@ def page1(c, d):
         ("Pflegeberuf",                    d["pflegeberuf"],     False),
         ("Pflegeerfahrung",               d["erfahrung"],       False),
     ]
-    hdr1 = 24*mm
+    hdr1 = 19*mm
     rows1 = [(l, v, vt) for l, v, vt in rows1
              if str(v).strip() not in ("", "-")]
     th = hdr1 + len(rows1) * row_h
@@ -510,7 +510,7 @@ def page2(c, d):
     # Nur Zeilen mit echtem Wert anzeigen
     rows2 = [(l, v, lv) for l, v, lv in rows2 if val_ok(v)]
 
-    hdr2 = 25*mm
+    hdr2 = 19*mm
     th = hdr2 + len(rows2) * row_h
     card(c, mx, y - th, kw, th)
 
@@ -564,7 +564,7 @@ def page2(c, d):
         extra_rows.append(("Weitere Sprachen",     d["andere_sprachen"],    True))
 
     if extra_rows:
-        hdr3    = 24*mm
+        hdr3    = 19*mm
         val_x   = mx + kw * 0.55
         val_w   = kw * 0.45 - 5*mm
 
