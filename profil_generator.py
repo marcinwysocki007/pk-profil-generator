@@ -480,9 +480,24 @@ def page2(c, d):
 
     # ── Anforderungen ────────────────────────────────────────────
     row_h = 12*mm
+
+    # Anzahl Patienten schöner darstellen: "1 Person" / "3 Personen"
+    pat = str(d.get("patienten_anzahl", "")).strip()
+    if pat.isdigit():
+        pat_disp = f"{pat} Person" if pat == "1" else f"{pat} Personen"
+    else:
+        pat_disp = pat
+
+    # Geschlecht: "Alle" klingt freundlicher als "Keine Präferenz"
+    geschl = str(d.get("geschlecht_akzeptiert", "")).strip()
+    if geschl.lower() in ("alle", "alle geschlechter", "egal", "beide", "m/w", "männlich/weiblich"):
+        geschl_disp = "Keine Präferenz"
+    else:
+        geschl_disp = geschl
+
     rows2 = [
-        ("Anzahl Patienten",           d["patienten_anzahl"],        False),
-        ("Geschlecht Patient",         d["geschlecht_akzeptiert"],   True),
+        ("Anzahl Patienten",           pat_disp,                     False),
+        ("Geschlecht Patient",         geschl_disp,                  True),
         ("Mobilität",                  d["mobilitaet"],              True),
         ("Heben & Lagern",             d["heben_lagern"],            False),
         ("Demenz akzeptiert",          d["demenz"],                  False),
@@ -508,7 +523,7 @@ def page2(c, d):
 
     c.setFillColor(C_DUNKEL)
     c.setFont("Arial-B", 12)
-    c.drawString(mx + 5*mm, y - 11*mm, "Anforderungen & Präferenzen")
+    c.drawString(mx + 5*mm, y - 11*mm, "Anforderungen & Präferenzen der Betreuungskraft")
     separator(c, mx, y - hdr2, kw)
 
     # Erste Zeile UNTER der Trennlinie – sonst bleibt am Kartenende eine leere Zeile
