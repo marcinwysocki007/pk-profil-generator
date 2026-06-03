@@ -510,7 +510,7 @@ def page2(c, d):
     # Nur Zeilen mit echtem Wert anzeigen
     rows2 = [(l, v, lv) for l, v, lv in rows2 if val_ok(v)]
 
-    hdr2 = 25*mm
+    hdr2 = 19*mm
     th = hdr2 + len(rows2) * row_h
     card(c, mx, y - th, kw, th)
 
@@ -519,14 +519,15 @@ def page2(c, d):
     c.drawString(mx + 5*mm, y - 11*mm, "Anforderungen & Präferenzen")
     separator(c, mx, y - hdr2, kw)
 
-    ry = y - hdr2
+    # Erste Zeile UNTER der Trennlinie – sonst bleibt am Kartenende eine leere Zeile
+    ry = y - hdr2 - row_h
     for i, (label, value, lila_v) in enumerate(rows2):
         if i > 0:
             separator(c, mx, ry + row_h, kw)
 
         c.setFillColor(C_GRAU)
         c.setFont("Arial", 9.5)
-        label_max = kw * 0.58
+        label_max = kw * 0.52
         llines = wrap(c, label, "Arial", 9.5, label_max)
         n_l    = len(llines)
         ly     = ry + row_h / 2 + (n_l - 1) * 2.25*mm - 1.5*mm
@@ -535,8 +536,8 @@ def page2(c, d):
 
         c.setFillColor(C_LILA if lila_v else C_DUNKEL)
         c.setFont("Arial-B", 9.5)
-        val_x  = mx + kw * 0.62
-        val_w  = kw * 0.38 - 5*mm
+        val_x  = mx + kw * 0.55
+        val_w  = kw * 0.45 - 5*mm
         vlines = wrap(c, str(value), "Arial-B", 9.5, val_w)
         n_v    = len(vlines)
         vy     = ry + row_h / 2 + (n_v - 1) * 2.25*mm - 1.5*mm
