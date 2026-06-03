@@ -556,7 +556,7 @@ def page2(c, d):
         extra_rows.append(("Hobbys",               d["hobbys"],             False))
     if val_ok(d.get("besondere_merkmale")):
         bm = str(d["besondere_merkmale"])
-        MAX_BM = 180
+        MAX_BM = 120
         if len(bm) > MAX_BM:
             bm = bm[:MAX_BM].rsplit(" ", 1)[0].rstrip(",") + " ..."
         extra_rows.append(("Besondere Merkmale", bm, False))
