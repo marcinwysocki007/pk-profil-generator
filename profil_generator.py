@@ -422,11 +422,6 @@ def page1(c, d):
 
     draw_language_scale(c, mx + 5*mm, y - 20*mm, kw - 10*mm, d["deutsch_level"])
 
-    # Trennlinie zwischen Skala und Beschreibungstext
-    c.setStrokeColor(C_TRENN)
-    c.setLineWidth(0.3)
-    c.line(mx + 4*mm, y - 34*mm, mx + kw - 4*mm, y - 34*mm)
-
     c.setFillColor(C_GRAU)
     c.setFont(txt_font, txt_size)
     ty = y - 37*mm
@@ -438,7 +433,6 @@ def page1(c, d):
     # ── 3. Wichtigste Profildetails ──────────────────────────────
     row_h = 11*mm
     rows1 = [
-        ("Verfügbarkeit",                  d["verfuegbarkeit"],  "badge"),
         ("Nationalität",                   d["nationalitaet"],   True),
         ("Geschlecht",                     d["geschlecht"],      True),
         ("Alter",                          d["alter"],           False),
@@ -448,7 +442,7 @@ def page1(c, d):
         ("Pflegeberuf",                    d["pflegeberuf"],     False),
         ("Pflegeerfahrung",               d["erfahrung"],       False),
     ]
-    hdr1 = 24*mm
+    hdr1 = 15*mm
     rows1 = [(l, v, vt) for l, v, vt in rows1
              if str(v).strip() not in ("", "-")]
     th = hdr1 + len(rows1) * row_h
@@ -459,18 +453,11 @@ def page1(c, d):
     c.drawString(mx + 5*mm, y - 10*mm, "Wichtigste Profildetails")
     separator(c, mx, y - hdr1, kw)
 
-    ry = y - hdr1
+    # Erste Zeile UNTER der Trennlinie – sonst bleibt am Kartenende eine leere Zeile
+    ry = y - hdr1 - row_h
     for i, (label, value, vtype) in enumerate(rows1):
-        if vtype == "badge":
-            if i > 0:
-                separator(c, mx, ry + row_h, kw)
-            c.setFillColor(C_GRAU)
-            c.setFont("Arial", 9.5)
-            c.drawString(mx + 8*mm, ry + row_h / 2 - 1.5*mm, label)
-            draw_badge(c, mx + kw, ry, value, row_h)
-        else:
-            draw_table_row(c, mx, ry, kw, label, value,
-                           row_h=row_h, lila_val=bool(vtype), sep=(i > 0))
+        draw_table_row(c, mx, ry, kw, label, value,
+                       row_h=row_h, lila_val=bool(vtype), sep=(i > 0))
         ry -= row_h
 
     draw_footer(c, d.get("company_name"), d.get("logo_pfad"))
