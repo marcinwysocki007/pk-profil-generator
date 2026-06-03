@@ -73,7 +73,7 @@ DATEN = {
     # Persönlichkeit & Extras
     "hobbys":             "Kochen, Sport",
     "persoenlichkeit":    "Hilfsbereit, offen, geduldig, einfühlsam",
-    "besondere_merkmale": "Erfahrung mit Demenz (frühes bis fortgeschrittenes Stadium)",
+    "besondere_merkmale": "Langjährige Erfahrung mit Demenz im fortgeschrittenen Stadium sowie sichere Begleitung bei Palliativ- und Sterbephasen",
     "andere_sprachen":    "Polnisch (Muttersprache)",
 
     # Firmen-Branding (wie in der App) – für realistischen Footer-/Farbtest
@@ -547,14 +547,14 @@ def page2(c, d):
         extra_rows.append(("Persönlichkeit",       d["persoenlichkeit"],    False))
     if val_ok(d.get("hobbys")):
         extra_rows.append(("Hobbys",               d["hobbys"],             False))
+    if val_ok(d.get("andere_sprachen")):
+        extra_rows.append(("Weitere Sprachen",     d["andere_sprachen"],    True))
     if val_ok(d.get("besondere_merkmale")):
         bm = str(d["besondere_merkmale"])
         MAX_BM = 120
         if len(bm) > MAX_BM:
             bm = bm[:MAX_BM].rsplit(" ", 1)[0].rstrip(",") + " ..."
         extra_rows.append(("Besondere Merkmale", bm, False))
-    if val_ok(d.get("andere_sprachen")):
-        extra_rows.append(("Weitere Sprachen",     d["andere_sprachen"],    True))
 
     if extra_rows:
         hdr3    = 19*mm
