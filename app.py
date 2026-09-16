@@ -322,34 +322,103 @@ def extract_from_images(files, client) -> dict:
     return json.loads(raw[raw.find("{"):raw.rfind("}") + 1])
 
 
+def _crop_portrait(img, face):
+    """Schneidet ein quadratisches Porträt um das Gesicht aus.
+    Liegt das Foto eingebettet in einer Seitengrafik, werden die Fotoränder
+    über den flachen, hellen Kartenhintergrund erkannt."""
+    import numpy as np
+    a = np.asarray(img).astype(np.int16)
+    H_, W_ = a.shape[:2]
+    x, y, w, h = [int(v) for v in face]
+
+    def flat_bright(seg):
+        return seg.std(axis=0).max() < 8 and seg.mean() > 225
+
+    def scan(start, stop, step, line):
+        run = 0
+        for i in range(start, stop, step):
+            run = run + 1 if flat_bright(line(i)) else 0
+            if run >= 4:
+                return i - step * 3
+        return None
+
+    y0, y1 = y, min(H_, y + h)
+    x0, x1 = x, min(W_, x + w)
+    left  = scan(x, max(-1, x - int(1.2 * w)), -1, lambda i: a[y0:y1, i])
+    right = scan(x + w, min(W_, x + w + int(1.2 * w)), 1, lambda i: a[y0:y1, i])
+    top   = scan(y, max(-1, y - int(1.0 * h)), -1, lambda i: a[i, x0:x1])
+
+    left  = left + 1 if left is not None else max(0, x - int(0.45 * w))
+    right = right if right is not None else min(W_, x + w + int(0.45 * w))
+    side  = int(min(max(right - left, 1.2 * w), 2.4 * w))
+
+    cx = (left + right) / 2
+    cy = y + h / 2
+    sx = int(max(0, min(W_ - side, cx - side / 2)))
+    sy = cy - side / 2
+    if top is not None:
+        sy = max(top + 1, sy)
+    sy = int(max(0, min(H_ - side, sy)))
+    return img.crop((sx, sy, sx + side, sy + side))
+
+
 def extract_photo_from_pdf(pdf_bytes: bytes):
-    """Sucht im PDF das wahrscheinlichste Porträtfoto.
-    Logos (breit, klein, transparent) werden aussortiert; von den übrigen gewinnt das größte Bild.
-    Gibt ein PIL-Image (RGB) oder None zurück."""
+    """Sucht im PDF das Porträtfoto und gibt es als PIL-Image (RGB) zurück, sonst None.
+    1. Gesichtserkennung in allen eingebetteten Bildern – findet das Foto auch,
+       wenn es in eine Seitengrafik eingebacken ist (z. B. Primundus-PDFs).
+    2. Fallback ohne Gesicht: größtes fotoartiges Einzelbild (Logos werden aussortiert)."""
     from pypdf import PdfReader
-    best, best_area = None, 0
     try:
         reader = PdfReader(io.BytesIO(pdf_bytes))
+        images, seen = [], set()
         for page in reader.pages[:3]:
             for img_file in page.images:
                 try:
                     img = img_file.image
                 except Exception:
                     continue
-                w, h = img.size
-                if w < 120 or h < 120:
+                key = (img_file.name, img.size)
+                if key in seen or min(img.size) < 120:
                     continue
-                if not 0.6 <= w / h <= 1.6:          # Banner, Logos, Streifen
-                    continue
+                seen.add(key)
                 if img.mode in ("RGBA", "LA", "P") and "A" in img.getbands():
                     continue                           # transparente Grafiken sind fast immer Logos
-                colors_used = img.convert("RGB").resize((64, 64)).getcolors(64 * 64)
-                if colors_used is not None and len(colors_used) < 200:
-                    continue                           # flächige Grafik statt Foto
-                if w * h > best_area:
-                    best, best_area = img.convert("RGB"), w * h
+                images.append(img.convert("RGB"))
     except Exception:
         return None
+
+    # 1. Gesichtserkennung
+    try:
+        import cv2
+        import numpy as np
+        casc = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+        best, best_area = None, 0
+        for img in images:
+            scale = min(1.0, 1400 / max(img.size))
+            small = img.resize((int(img.width * scale), int(img.height * scale))) if scale < 1 else img
+            gray = cv2.cvtColor(np.asarray(small), cv2.COLOR_RGB2GRAY)
+            min_face = max(40, min(gray.shape) // 10)
+            faces = casc.detectMultiScale(gray, 1.1, 6, minSize=(min_face, min_face))
+            for f in faces:
+                area = f[2] * f[3] / (scale * scale)
+                if area > best_area:
+                    best, best_area = (img, [v / scale for v in f]), area
+        if best:
+            return _crop_portrait(*best)
+    except Exception:
+        pass
+
+    # 2. Fallback: größtes fotoartiges Bild
+    best, best_area = None, 0
+    for img in images:
+        w, h = img.size
+        if not 0.6 <= w / h <= 1.6:
+            continue
+        colors_used = img.resize((64, 64)).getcolors(64 * 64)
+        if colors_used is not None and len(colors_used) < 200:
+            continue                               # flächige Grafik statt Foto
+        if w * h > best_area:
+            best, best_area = img, w * h
     return best
 
 
