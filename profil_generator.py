@@ -148,18 +148,6 @@ def wrap(c, text, font, size, max_w):
     return lines
 
 
-def wrap_trunc(c, text, font, size, max_w, max_lines=5):
-    """Wie wrap(), aber nach max_lines Zeilen mit '...' abschneiden."""
-    lines = wrap(c, text, font, size, max_w)
-    if len(lines) > max_lines:
-        lines = lines[:max_lines]
-        last = lines[-1]
-        while last and c.stringWidth(last + " ...", font, size) > max_w:
-            last = last.rsplit(" ", 1)[0] if " " in last else last[:-1]
-        lines[-1] = last + " ..."
-    return lines
-
-
 def draw_text(c, x, y, text, font, size, color, max_w, leading):
     """Mehrzeiliger Text – gibt neue y-Position zurück."""
     c.setFont(font, size)
@@ -334,31 +322,143 @@ def draw_badge(c, right_x, row_y, text, row_h=9*mm):
     c.drawCentredString(bx + bw / 2, by + 1.5*mm, text)
 
 
-def draw_table_row(c, x, y, w, label, value,
-                   row_h=11*mm, lila_val=False, sep=True,
-                   label_ratio=0.55):
-    if sep:
-        separator(c, x, y + row_h, w)
-    mid   = x + w * label_ratio
-    cy    = y + row_h / 2 - 1.5*mm   # vertikale Mitte der Zeile
-    # Label
-    c.setFillColor(C_GRAU)
-    c.setFont("Arial", 9.5)
-    c.drawString(x + 8*mm, cy, label)
-    # Wert
-    c.setFillColor(C_LILA if lila_val else C_DUNKEL)
-    c.setFont("Arial-B", 9.5)
-    val_x = mid + 4*mm
-    val_w = w - w * label_ratio - 12*mm
-    vlines = wrap(c, str(value), "Arial-B", 9.5, val_w)
-    n_v    = len(vlines)
-    vy     = y + row_h / 2 + (n_v - 1) * 2.25*mm - 1.5*mm
-    if n_v == 1:
-        c.drawRightString(x + w - 5*mm, cy, vlines[0])
-    else:
-        for ln in vlines:
-            c.drawString(val_x, vy, ln)
-            vy -= 4.5*mm
+# ── Werte-Filter ─────────────────────────────────────────────────
+
+# Werte ohne Aussage für den Kunden – solche Zeilen werden nicht gezeigt
+_LEERWERTE = {
+    "", "-", "–", "—", "nicht relevant", "nicht spezifiziert", "nicht angegeben",
+    "keine angabe", "keine angaben", "k.a.", "k. a.", "unbekannt", "n/a", "none", "null",
+}
+
+
+def has_value(v) -> bool:
+    return v is not None and str(v).strip().lower().rstrip(".") not in _LEERWERTE
+
+
+# ── Fluss-Layout mit automatischem Seitenumbruch ─────────────────
+
+MX         = 15*mm
+KW         = W - 2*MX
+GAP        = 6*mm
+BOTTOM     = 20*mm      # Inhalte enden oberhalb des Footers (Linie bei 13 mm)
+ROW_MIN    = 10*mm
+ROW_PAD    = 5.5*mm
+LEAD       = 4.5*mm
+FONT_SIZE  = 9.5
+PAGE_SPACE = H - 15*mm - 40*mm - 8*mm - BOTTOM   # nutzbare Höhe unter dem Header
+
+
+class Layout:
+    """Verfolgt die y-Position und beginnt neue Seiten, wenn der Platz nicht reicht."""
+
+    def __init__(self, c, d):
+        self.c, self.d = c, d
+        self.y = None
+        self.fresh = False   # True, solange auf der aktuellen Seite noch nichts steht
+
+    def new_page(self):
+        c, d = self.c, self.d
+        if self.y is not None:
+            draw_footer(c, d.get("company_name"), d.get("logo_pfad"))
+            c.showPage()
+        c.setFillColor(C_ROSA_BG)
+        c.rect(0, 0, W, H, fill=1, stroke=0)
+        hy = draw_header(c, d["name"], d["geschlecht"], d.get("foto_pfad"),
+                         d.get("logo_pfad"), d.get("company_name"))
+        self.y = hy - 8*mm
+        self.fresh = True
+
+    def space(self):
+        return self.y - BOTTOM
+
+    def reserve(self, h):
+        """Neue Seite, falls ein Block der Höhe h nicht mehr passt."""
+        if h > self.space() and not self.fresh:
+            self.new_page()
+
+    def advance(self, h):
+        self.y -= h + GAP
+        self.fresh = False
+
+    def finish(self):
+        draw_footer(self.c, self.d.get("company_name"), self.d.get("logo_pfad"))
+
+
+def _row_geometry(c, label, value, split, right_align):
+    lbl_w = KW * split - 12*mm
+    val_w = KW * (1 - split) - (9*mm if right_align else 5*mm)
+    llines = wrap(c, label, "Arial", FONT_SIZE, lbl_w)
+    vlines = wrap(c, str(value), "Arial-B", FONT_SIZE, val_w)
+    h = max(ROW_MIN, max(len(llines), len(vlines)) * LEAD + ROW_PAD)
+    return llines, vlines, h
+
+
+def _draw_lines_centered(c, lines, x, row_top, rh, right=False):
+    y = row_top - rh / 2 + (len(lines) - 1) * LEAD / 2 - 1.5*mm
+    for ln in lines:
+        (c.drawRightString if right else c.drawString)(x, y, ln)
+        y -= LEAD
+
+
+def table_card(lay, title, rows, split=0.55, right_align=False, hdr_h=17*mm):
+    """Karte mit Titel und Label/Wert-Zeilen. Zeilen ohne Aussage entfallen,
+    Zeilen wachsen mit dem Text, bei Platzmangel geht die Karte auf der nächsten Seite weiter."""
+    c = lay.c
+    rows = [(l, v, lila) for l, v, lila in rows if has_value(v)]
+    if not rows:
+        return
+    geo = [_row_geometry(c, l, v, split, right_align) for l, v, _ in rows]
+
+    # Kleine Karten nicht teilen, sondern komplett auf die nächste Seite
+    total = hdr_h + sum(g[2] for g in geo)
+    if total <= PAGE_SPACE / 2:
+        lay.reserve(total)
+
+    i, first = 0, True
+    while i < len(rows):
+        # Mindestens zwei Zeilen (oder alle restlichen) sollen unter den Titel passen
+        need = hdr_h + sum(g[2] for g in geo[i:i+2])
+        lay.reserve(need)
+
+        avail = lay.space() - hdr_h
+        j, used = i, 0
+        while j < len(rows) and used + geo[j][2] <= avail:
+            used += geo[j][2]
+            j += 1
+        if j == i:                              # Einzelzeile höher als Seite – trotzdem setzen
+            used, j = geo[i][2], i + 1
+        if len(rows) - j == 1 and j - i >= 3:  # keine einzelne Zeile allein auf der Folgeseite
+            j -= 1
+            used -= geo[j][2]
+
+        top = lay.y
+        card(c, MX, top - hdr_h - used, KW, hdr_h + used)
+        c.setFillColor(C_DUNKEL)
+        c.setFont("Arial-B", 12)
+        c.drawString(MX + 5*mm, top - 10.5*mm, title if first else f"{title} (Fortsetzung)")
+        separator(c, MX, top - hdr_h, KW)
+
+        row_top = top - hdr_h
+        for k in range(i, j):
+            label, _, lila = rows[k]
+            llines, vlines, rh = geo[k]
+            if k > i:
+                separator(c, MX, row_top, KW)
+            c.setFillColor(C_GRAU)
+            c.setFont("Arial", FONT_SIZE)
+            _draw_lines_centered(c, llines, MX + 8*mm, row_top, rh)
+            c.setFillColor(C_LILA if lila else C_DUNKEL)
+            c.setFont("Arial-B", FONT_SIZE)
+            if right_align:
+                _draw_lines_centered(c, vlines, MX + KW - 5*mm, row_top, rh, right=True)
+            else:
+                _draw_lines_centered(c, vlines, MX + KW * split, row_top, rh)
+            row_top -= rh
+
+        lay.advance(hdr_h + used)
+        i, first = j, False
+        if i < len(rows):
+            lay.new_page()
 
 
 def draw_info_box(c, x, y, w, title, text, accent=None, bg=None):
@@ -367,9 +467,7 @@ def draw_info_box(c, x, y, w, title, text, accent=None, bg=None):
         accent = C_LILA
     if bg is None:
         bg = C_EMPF
-    text_w = w - 22*mm
-    lines  = wrap(c, text, "Arial", 10, text_w)
-    bh     = max(28*mm, 16*mm + len(lines) * 5.2*mm)
+    bh = info_box_height(c, w, text)
 
     card(c, x, y - bh, w, bh, bg=bg)
 
@@ -384,234 +482,103 @@ def draw_info_box(c, x, y, w, title, text, accent=None, bg=None):
     c.drawString(tx, y - 10*mm, title)
 
     # Text
-    draw_text(c, tx, y - 17*mm, text, "Arial", 10, C_GRAU, text_w, 5.2*mm)
+    draw_text(c, tx, y - 17*mm, text, "Arial", 10, C_GRAU, w - 22*mm, 5.2*mm)
 
     return bh
 
 
-# ── Seiten ───────────────────────────────────────────────────────
+def info_box_height(c, w, text):
+    lines = wrap(c, text, "Arial", 10, w - 22*mm)
+    return max(28*mm, 15*mm + len(lines) * 5.2*mm)
 
-def page1(c, d):
-    mx = 15*mm
-    kw = W - 2*mx
 
-    # Hintergrund
-    c.setFillColor(C_ROSA_BG)
-    c.rect(0, 0, W, H, fill=1, stroke=0)
+def language_card(lay):
+    c, d = lay.c, lay.d
+    txt_w = KW - 10*mm
+    lines = wrap(c, d.get("deutsch_text", ""), "Arial", 9.5, txt_w)
+    # Skala-Beschriftungen enden bei ca. 29 mm unter der Kartenoberkante
+    sh = 35*mm + len(lines) * 5*mm + 1*mm
+    lay.reserve(sh)
+    y = lay.y
+    card(c, MX, y - sh, KW, sh)
 
-    # Header
-    hy = draw_header(c, d["name"], d["geschlecht"], d.get("foto_pfad"), d.get("logo_pfad"), d.get("company_name"))
-    y  = hy - 8*mm
-
-    # ── 1. Zusammenfassung (OBEN) ────────────────────────────────
-    bh = draw_info_box(c, mx, y, kw, f"Über {d['name']}", d["beschreibung"])
-    y -= bh + 6*mm
-
-    # ── 2. Sprachkenntnisse ──────────────────────────────────────
-    txt_w    = kw - 10*mm
-    txt_font, txt_size, txt_lead = "Arial", 9.5, 5*mm
-    dt_lines = wrap(c, d["deutsch_text"], txt_font, txt_size, txt_w)
-    # Skala-Beschriftungen enden bei ca. y-32mm → Text erst ab y-36mm
-    sh = 40*mm + len(dt_lines) * txt_lead + 4*mm
-    card(c, mx, y - sh, kw, sh)
-
-    draw_flag_de(c, mx + 5*mm, y - 9*mm)
+    draw_flag_de(c, MX + 5*mm, y - 9*mm)
     c.setFillColor(C_DUNKEL)
     c.setFont("Arial-B", 11)
-    c.drawString(mx + 14*mm, y - 7.5*mm, "Deutschkenntnisse")
+    c.drawString(MX + 14*mm, y - 7.5*mm, "Deutschkenntnisse")
 
-    draw_language_scale(c, mx + 5*mm, y - 20*mm, kw - 10*mm, d["deutsch_level"])
+    draw_language_scale(c, MX + 5*mm, y - 19*mm, KW - 10*mm, d["deutsch_level"])
 
     c.setFillColor(C_GRAU)
-    c.setFont(txt_font, txt_size)
-    ty = y - 37*mm
-    for line in dt_lines:
-        c.drawString(mx + 5*mm, ty, line)
-        ty -= txt_lead
-    y -= sh + 6*mm
-
-    # ── 3. Wichtigste Profildetails ──────────────────────────────
-    row_h = 11*mm
-    rows1 = [
-        ("Nationalität",                   d["nationalitaet"],   True),
-        ("Geschlecht",                     d["geschlecht"],      True),
-        ("Alter",                          d["alter"],           False),
-        ("Größe und Gewicht",              d["groesse_gewicht"], False),
-        ("Führerschein",                   d["fuehrerschein"],   False),
-        ("Raucher",                        d["raucher"],         False),
-        ("Pflegeberuf",                    d["pflegeberuf"],     False),
-        ("Pflegeerfahrung",               d["erfahrung"],       False),
-    ]
-    hdr1 = 15*mm
-    rows1 = [(l, v, vt) for l, v, vt in rows1
-             if str(v).strip() not in ("", "-")]
-    th = hdr1 + len(rows1) * row_h
-    card(c, mx, y - th, kw, th)
-
-    c.setFillColor(C_DUNKEL)
-    c.setFont("Arial-B", 12)
-    c.drawString(mx + 5*mm, y - 10*mm, "Wichtigste Profildetails")
-    separator(c, mx, y - hdr1, kw)
-
-    # Erste Zeile UNTER der Trennlinie – sonst bleibt am Kartenende eine leere Zeile
-    ry = y - hdr1 - row_h
-    for i, (label, value, vtype) in enumerate(rows1):
-        draw_table_row(c, mx, ry, kw, label, value,
-                       row_h=row_h, lila_val=bool(vtype), sep=(i > 0))
-        ry -= row_h
-
-    draw_footer(c, d.get("company_name"), d.get("logo_pfad"))
-
-    y -= th
+    c.setFont("Arial", 9.5)
+    ty = y - 34*mm
+    for line in lines:
+        c.drawString(MX + 5*mm, ty, line)
+        ty -= 5*mm
+    lay.advance(sh)
 
 
-def page2(c, d):
-    mx = 15*mm
-    kw = W - 2*mx
+# ── Seiten ───────────────────────────────────────────────────────
 
-    c.setFillColor(C_ROSA_BG)
-    c.rect(0, 0, W, H, fill=1, stroke=0)
+def section_profil(lay):
+    """Seite 1: Über, Deutschkenntnisse, wichtigste Profildetails."""
+    c, d = lay.c, lay.d
 
-    hy = draw_header(c, d["name"], d["geschlecht"], d.get("foto_pfad"), d.get("logo_pfad"), d.get("company_name"))
-    y  = hy - 8*mm
+    if has_value(d.get("beschreibung")):
+        bh = info_box_height(c, KW, d["beschreibung"])
+        lay.reserve(bh)
+        draw_info_box(c, MX, lay.y, KW, f"Über {d['name']}", d["beschreibung"])
+        lay.advance(bh)
 
-    def val_ok(v):
-        return v and str(v).strip() not in ("", "-")
+    language_card(lay)
 
-    # ── Anforderungen ────────────────────────────────────────────
-    row_h = 12*mm
+    table_card(lay, "Wichtigste Profildetails", [
+        ("Nationalität",      d.get("nationalitaet"),   True),
+        ("Geschlecht",        d.get("geschlecht"),      True),
+        ("Alter",             d.get("alter"),           False),
+        ("Größe und Gewicht", d.get("groesse_gewicht"), False),
+        ("Führerschein",      d.get("fuehrerschein"),   False),
+        ("Raucher",           d.get("raucher"),         False),
+        ("Pflegeberuf",       d.get("pflegeberuf"),     False),
+        ("Pflegeerfahrung",   d.get("erfahrung"),       False),
+    ], split=0.45, right_align=True, hdr_h=15*mm)
+
+
+def section_anforderungen(lay):
+    """Seite 2: Anforderungen & weitere Informationen."""
+    d = lay.d
 
     # Anzahl Patienten schöner darstellen: "1 Person" / "3 Personen"
     pat = str(d.get("patienten_anzahl", "")).strip()
     if pat.isdigit():
-        pat_disp = f"{pat} Person" if pat == "1" else f"{pat} Personen"
-    else:
-        pat_disp = pat
+        pat = f"{pat} Person" if pat == "1" else f"{pat} Personen"
 
-    # Geschlecht: "Alle" klingt freundlicher als "Keine Präferenz"
+    # Geschlecht: "Alle" → "Keine Präferenz"
     geschl = str(d.get("geschlecht_akzeptiert", "")).strip()
     if geschl.lower() in ("alle", "alle geschlechter", "egal", "beide", "m/w", "männlich/weiblich"):
-        geschl_disp = "Keine Präferenz"
-    else:
-        geschl_disp = geschl
+        geschl = "Keine Präferenz"
 
-    rows2 = [
-        ("Anzahl Patienten",           pat_disp,                     False),
-        ("Geschlecht Patient",         geschl_disp,                  True),
-        ("Mobilität",                  d["mobilitaet"],              True),
-        ("Heben & Lagern",             d["heben_lagern"],            False),
-        ("Demenz akzeptiert",          d["demenz"],                  False),
-        ("Nachteinsätze",              d["nachteinsaetze"],          False),
-        ("Weitere Personen im Haus",   d["andere_haushalt"],         False),
-        ("Familie in der Nähe",        d["familie_naehe"],           False),
-        ("Tiere im Haushalt",          d.get("tiere", ""),           False),
-    ]
-    # Optionale Felder nur wenn befüllt
-    if val_ok(d.get("urbanisierung")):
-        rows2.append(("Urbanisierung", d["urbanisierung"], False))
-    if val_ok(d.get("unterbringung")):
-        rows2.append(("Unterbringung", d["unterbringung"], False))
-    if val_ok(d.get("praeferierte_gegend")):
-        rows2.append(("Bevorzugte Gegend", d["praeferierte_gegend"], False))
+    table_card(lay, "Anforderungen & Präferenzen der Betreuungskraft", [
+        ("Anzahl Patienten",         pat,                         False),
+        ("Geschlecht Patient",       geschl,                      True),
+        ("Mobilität",                d.get("mobilitaet"),         True),
+        ("Heben & Lagern",           d.get("heben_lagern"),       False),
+        ("Demenz akzeptiert",        d.get("demenz"),             False),
+        ("Nachteinsätze",            d.get("nachteinsaetze"),     False),
+        ("Weitere Personen im Haus", d.get("andere_haushalt"),    False),
+        ("Familie in der Nähe",      d.get("familie_naehe"),      False),
+        ("Tiere im Haushalt",        d.get("tiere"),              False),
+        ("Urbanisierung",            d.get("urbanisierung"),      False),
+        ("Unterbringung",            d.get("unterbringung"),      False),
+        ("Bevorzugte Gegend",        d.get("praeferierte_gegend"), False),
+    ])
 
-    # Nur Zeilen mit echtem Wert anzeigen
-    rows2 = [(l, v, lv) for l, v, lv in rows2 if val_ok(v)]
-
-    hdr2 = 19*mm
-    th = hdr2 + len(rows2) * row_h
-    card(c, mx, y - th, kw, th)
-
-    c.setFillColor(C_DUNKEL)
-    c.setFont("Arial-B", 12)
-    c.drawString(mx + 5*mm, y - 11*mm, "Anforderungen & Präferenzen der Betreuungskraft")
-    separator(c, mx, y - hdr2, kw)
-
-    # Erste Zeile UNTER der Trennlinie – sonst bleibt am Kartenende eine leere Zeile
-    ry = y - hdr2 - row_h
-    for i, (label, value, lila_v) in enumerate(rows2):
-        if i > 0:
-            separator(c, mx, ry + row_h, kw)
-
-        c.setFillColor(C_GRAU)
-        c.setFont("Arial", 9.5)
-        label_max = kw * 0.52
-        llines = wrap(c, label, "Arial", 9.5, label_max)
-        n_l    = len(llines)
-        ly     = ry + row_h / 2 + (n_l - 1) * 2.25*mm - 1.5*mm
-        for j, ll in enumerate(llines):
-            c.drawString(mx + 8*mm, ly - j * 4.5*mm, ll)
-
-        c.setFillColor(C_LILA if lila_v else C_DUNKEL)
-        c.setFont("Arial-B", 9.5)
-        val_x  = mx + kw * 0.55
-        val_w  = kw * 0.45 - 5*mm
-        vlines = wrap(c, str(value), "Arial-B", 9.5, val_w)
-        n_v    = len(vlines)
-        vy     = ry + row_h / 2 + (n_v - 1) * 2.25*mm - 1.5*mm
-        for vl in vlines:
-            c.drawString(val_x, vy, vl)
-            vy -= 4.5*mm
-
-        ry -= row_h
-
-    y -= th + 6*mm
-
-    # ── Persönlichkeit / Extras (nur wenn befüllt) ───────────────
-    extra_rows = []
-    if val_ok(d.get("persoenlichkeit")):
-        extra_rows.append(("Persönlichkeit",       d["persoenlichkeit"],    False))
-    if val_ok(d.get("hobbys")):
-        extra_rows.append(("Hobbys",               d["hobbys"],             False))
-    if val_ok(d.get("andere_sprachen")):
-        extra_rows.append(("Weitere Sprachen",     d["andere_sprachen"],    True))
-    if val_ok(d.get("besondere_merkmale")):
-        bm = str(d["besondere_merkmale"])
-        MAX_BM = 120
-        if len(bm) > MAX_BM:
-            bm = bm[:MAX_BM].rsplit(" ", 1)[0].rstrip(",") + " ..."
-        extra_rows.append(("Besondere Merkmale", bm, False))
-
-    if extra_rows:
-        hdr3    = 19*mm
-        val_x   = mx + kw * 0.55
-        val_w   = kw * 0.45 - 5*mm
-
-        # Dynamische Zeilenhöhen – passt sich an langen Texten an
-        row_heights = []
-        for label, value, lila_v in extra_rows:
-            vlines = wrap_trunc(c, str(value), "Arial-B", 9.5, val_w)
-            rh = max(row_h, len(vlines) * 4.5*mm + 4*mm)
-            row_heights.append(rh)
-
-        eh = hdr3 + sum(row_heights)
-        card(c, mx, y - eh, kw, eh)
-
-        c.setFillColor(C_DUNKEL)
-        c.setFont("Arial-B", 12)
-        c.drawString(mx + 5*mm, y - 11*mm, "Weitere Informationen")
-        separator(c, mx, y - hdr3, kw)
-
-        # Top-Down: row_y_top startet am Separator und geht nach unten
-        row_y_top = y - hdr3
-        for i, (label, value, lila_v) in enumerate(extra_rows):
-            rh_i     = row_heights[i]
-            center_y = row_y_top - rh_i / 2
-            if i > 0:
-                separator(c, mx, row_y_top, kw)
-            c.setFillColor(C_GRAU)
-            c.setFont("Arial", 9.5)
-            c.drawString(mx + 8*mm, center_y - 1.5*mm, label)
-            c.setFillColor(C_LILA if lila_v else C_DUNKEL)
-            c.setFont("Arial-B", 9.5)
-            vlines = wrap_trunc(c, str(value), "Arial-B", 9.5, val_w)
-            n_v    = len(vlines)
-            vy     = center_y + (n_v - 1) * 2.25*mm - 1.5*mm
-            for vl in vlines:
-                c.drawString(val_x, vy, vl)
-                vy -= 4.5*mm
-            row_y_top -= rh_i
-
-    draw_footer(c, d.get("company_name"), d.get("logo_pfad"))
+    table_card(lay, "Weitere Informationen", [
+        ("Persönlichkeit",     d.get("persoenlichkeit"),    False),
+        ("Hobbys",             d.get("hobbys"),             False),
+        ("Weitere Sprachen",   d.get("andere_sprachen"),    True),
+        ("Besondere Merkmale", d.get("besondere_merkmale"), False),
+    ])
 
 
 # ── Hauptprogramm ────────────────────────────────────────────────
@@ -635,9 +602,12 @@ def generate(daten=None, output_path=None):
     c = pdf_canvas.Canvas(str(output), pagesize=A4)
     c.setTitle(f"Profil der Betreuungsperson – {name}")
 
-    page1(c, daten)
-    c.showPage()
-    page2(c, daten)
+    lay = Layout(c, daten)
+    lay.new_page()
+    section_profil(lay)
+    lay.new_page()
+    section_anforderungen(lay)
+    lay.finish()
     c.save()
 
     print(f"PDF erstellt: {output}")
