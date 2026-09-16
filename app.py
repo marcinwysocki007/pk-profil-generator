@@ -254,7 +254,7 @@ DEUTSCH_TEXTS = {
 
 # ── Claude ───────────────────────────────────────────────────────
 EXTRACTION_PROMPT = """\
-Du liest Pflegekraft-Profildaten aus mamamia-Portal-Screenshots aus und gibst ein JSON-Objekt zurück.
+Du liest Pflegekraft-Profildaten aus den beigefügten Unterlagen aus (Screenshots aus dem mamamia-Portal und/oder PDF-Profile, auch von anderen Agenturen) und gibst ein JSON-Objekt zurück.
 
 Regeln:
 - name: NUR Vorname – KEIN Nachname, niemals Familienname
@@ -294,23 +294,63 @@ def get_client():
 
 
 def extract_from_images(files, client) -> dict:
+    """Liest Profildaten aus Screenshots und/oder PDFs (gemischt möglich)."""
     content = []
     for f in files:
-        data = f.read()
-        mt = "image/jpeg" if f.name.lower().endswith((".jpg", ".jpeg")) else "image/png"
+        data = f.getvalue()
+        name = f.name.lower()
+        if name.endswith(".pdf"):
+            content.append({
+                "type": "document",
+                "source": {"type": "base64", "media_type": "application/pdf",
+                           "data": base64.b64encode(data).decode()}
+            })
+            continue
+        mt = "image/jpeg" if name.endswith((".jpg", ".jpeg")) else "image/png"
         content.append({
             "type": "image",
             "source": {"type": "base64", "media_type": mt,
                        "data": base64.b64encode(data).decode()}
         })
     content.append({"type": "text", "text": EXTRACTION_PROMPT})
-    resp = get_client().messages.create(
+    resp = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=2000,
         messages=[{"role": "user", "content": content}]
     )
     raw = resp.content[0].text
     return json.loads(raw[raw.find("{"):raw.rfind("}") + 1])
+
+
+def extract_photo_from_pdf(pdf_bytes: bytes):
+    """Sucht im PDF das wahrscheinlichste Porträtfoto.
+    Logos (breit, klein, transparent) werden aussortiert; von den übrigen gewinnt das größte Bild.
+    Gibt ein PIL-Image (RGB) oder None zurück."""
+    from pypdf import PdfReader
+    best, best_area = None, 0
+    try:
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+        for page in reader.pages[:3]:
+            for img_file in page.images:
+                try:
+                    img = img_file.image
+                except Exception:
+                    continue
+                w, h = img.size
+                if w < 120 or h < 120:
+                    continue
+                if not 0.6 <= w / h <= 1.6:          # Banner, Logos, Streifen
+                    continue
+                if img.mode in ("RGBA", "LA", "P") and "A" in img.getbands():
+                    continue                           # transparente Grafiken sind fast immer Logos
+                colors_used = img.convert("RGB").resize((64, 64)).getcolors(64 * 64)
+                if colors_used is not None and len(colors_used) < 200:
+                    continue                           # flächige Grafik statt Foto
+                if w * h > best_area:
+                    best, best_area = img.convert("RGB"), w * h
+    except Exception:
+        return None
+    return best
 
 
 def build_daten(ext: dict, foto_path: str, company: dict) -> dict:
@@ -697,7 +737,7 @@ tab1, tab2 = st.tabs(["📋  Pflegeprofil erstellen", "💰  Preiskalkulator"])
 # TAB 1 – Pflegeprofil
 # ════════════════════════════════════════════════════════════════
 with tab1:
-    st.caption("Foto + Portal-Screenshots hochladen — PDF wird automatisch erstellt")
+    st.caption("Portal-Screenshots oder ein vorhandenes PDF-Profil hochladen — PDF wird automatisch erstellt")
 
     companies = load_companies()
     if not companies:
@@ -721,29 +761,49 @@ with tab1:
 
     col1, col2 = st.columns(2)
     with col1:
-        photo_file = st.file_uploader("Foto der Pflegekraft",
+        photo_file = st.file_uploader("Foto der Pflegekraft (bei PDF optional)",
                                       type=["jpg","jpeg","png"])
     with col2:
-        screenshot_files = st.file_uploader("Portal-Screenshots (1–10)",
-                                            type=["jpg","jpeg","png"],
+        screenshot_files = st.file_uploader("Portal-Screenshots und/oder PDF-Profil",
+                                            type=["jpg","jpeg","png","pdf"],
                                             accept_multiple_files=True)
 
     if st.button("Profil erstellen", type="primary", use_container_width=True, icon="🚀"):
-        if not photo_file:
-            st.error("Bitte ein Foto hochladen.")
-        elif not screenshot_files:
-            st.error("Bitte mindestens einen Portal-Screenshot hochladen.")
+        pdf_uploads = [f for f in (screenshot_files or []) if f.name.lower().endswith(".pdf")]
+        if not screenshot_files:
+            st.error("Bitte Screenshots oder ein PDF-Profil hochladen.")
+        elif not photo_file and not pdf_uploads:
+            st.error("Bitte ein Foto hochladen (nur bei PDF-Upload optional).")
         else:
             with st.status("Daten werden ausgelesen…", expanded=True) as status:
                 try:
-                    st.write("Claude liest die Screenshots aus…")
+                    # Foto: hochgeladenes Foto hat Vorrang, sonst aus dem PDF ziehen
+                    if photo_file:
+                        suffix, photo_bytes = Path(photo_file.name).suffix, photo_file.getvalue()
+                    else:
+                        st.write("Foto wird aus dem PDF gesucht…")
+                        photo_img = None
+                        for pf in pdf_uploads:
+                            photo_img = extract_photo_from_pdf(pf.getvalue())
+                            if photo_img:
+                                break
+                        if photo_img is None:
+                            status.update(label="Kein Foto gefunden", state="error")
+                            st.error("Im PDF wurde kein Foto gefunden. Bitte das Foto separat hochladen.")
+                            st.stop()
+                        buf = io.BytesIO()
+                        photo_img.save(buf, format="JPEG", quality=92)
+                        suffix, photo_bytes = ".jpg", buf.getvalue()
+                        st.image(photo_bytes, width=110,
+                                 caption="Foto aus dem PDF – falls falsch, Foto separat hochladen")
+
+                    st.write("Claude liest die Unterlagen aus…")
                     extracted = extract_from_images(screenshot_files, get_client())
                     name = extracted.get("name", "Unbekannt")
                     st.write(f"Erkannt: **{name}** · {extracted.get('verfuegbarkeit','?')}")
 
-                    suffix = Path(photo_file.name).suffix
                     tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
-                    tmp.write(photo_file.read())
+                    tmp.write(photo_bytes)
                     tmp.close()
 
                     daten = build_daten(extracted, tmp.name, selected_co)
